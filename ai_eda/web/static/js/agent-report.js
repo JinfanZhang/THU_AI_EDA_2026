@@ -115,7 +115,7 @@ function renderAgentCpuSummary(report) {
     table.className = "cpu-performance-table";
     const head = document.createElement("thead");
     const row = document.createElement("tr");
-    ["Benchmark", "Cycles", "Retired", "CPI", "IPC"].forEach((text) => {
+    ["Benchmark", "Cycles", "Retired", "Branches", "Mispredicts", "OoO bypass", "CPI", "IPC"].forEach((text) => {
       const cell = document.createElement("th");
       cell.textContent = text;
       row.append(cell);
@@ -128,6 +128,9 @@ function renderAgentCpuSummary(report) {
         benchmark.benchmark || benchmark.name || "benchmark",
         benchmark.cycles ?? "—",
         benchmark.instructions ?? benchmark.retired ?? "—",
+        benchmark.branches ?? "—",
+        benchmark.mispredicts ?? "—",
+        benchmark.ooo_bypass ?? "—",
         Number.isFinite(Number(benchmark.cpi)) ? Number(benchmark.cpi).toFixed(3) : "—",
         Number.isFinite(Number(benchmark.ipc)) ? Number(benchmark.ipc).toFixed(3) : "—",
       ].forEach((value) => {

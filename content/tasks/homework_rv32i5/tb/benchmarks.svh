@@ -94,11 +94,112 @@ task automatic benchmark_array_sum();
   end
 endtask
 
+
+
+// ---------------------------------------------------------------------------
+// Predictor benchmark: alternating taken/not-taken branch pattern.
+// ---------------------------------------------------------------------------
+task automatic build_branch_predict();
+  integer p;
+  begin
+    for (p = 1; p <= 2; p = p + 1) begin
+      pass_no = p; prog_len = 0;
+      e_addi(1, 0, 0);
+      e_addi(2, 0, 0);
+      e_addi(3, 0, 64);
+      mark(L0);
+      e_andi(4, 1, 1);
+      e_beq(4, 0, L1);
+      e_addi(2, 2, 3);
+      mark(L1);
+      e_addi(1, 1, 1);
+      e_bne(1, 3, L0);
+      e_addi(10, 2, 0);
+      e_ecall();
+    end
+  end
+endtask
+
+task automatic benchmark_branch_predict();
+  begin
+    build_branch_predict();
+    begin_test("bench_branch_predict64");
+    memory_wait = dbg_features[0] ? 3 : 0;
+    release_reset();
+    run_program(3000, 3000);
+    if (!run_timed_out) begin
+      check_exit_code(32'd96);
+      check_reg(2, 32'd96);
+      check_reg(10, 32'd96);
+      checks_run = checks_run + 1;
+      if (declared_level >= 2 && bp_resolve_count < 128)
+        fail(cur_test, $sformatf("branch predictor saw only %0d resolutions, expected >=128", bp_resolve_count));
+      emit_perf("teaching_branch_predict64", 293);
+    end
+    end_test();
+    memory_wait = 0;
+  end
+endtask
+
+// ---------------------------------------------------------------------------
+// OoO benchmark: independent ALU work behind a long-latency load.
+// ---------------------------------------------------------------------------
+task automatic build_ooo_overlap();
+  integer p;
+  begin
+    for (p = 1; p <= 2; p = p + 1) begin
+      pass_no = p; prog_len = 0;
+      e_addi(1, 0, 768);
+      e_addi(2, 0, 64);
+      e_addi(10, 0, 0);
+      mark(L0);
+      e_lw(3, 1, 0);
+      e_addi(1, 1, 4);
+      e_addi(5, 0, 1);
+      e_addi(6, 0, 2);
+      e_add(5, 5, 6);
+      e_add(10, 10, 3);
+      e_addi(2, 2, -1);
+      e_bne(2, 0, L0);
+      e_ecall();
+    end
+  end
+endtask
+
+task automatic benchmark_ooo_overlap();
+  integer i;
+  begin
+    build_ooo_overlap();
+    begin_test("bench_ooo_overlap64");
+    // Keep the external wait long enough for OoO overlap, but do not stress
+    // the I-Cache with the maximum wait on lower tiers.
+    memory_wait = (declared_level >= 3) ? 12 : 0;
+    for (i = 0; i < 64; i = i + 1) set_dmem_word(768 + i * 4, i + 1);
+    release_reset();
+    run_program(6000, 6000);
+    if (!run_timed_out) begin
+      check_exit_code(32'd2080);
+      check_reg(10, 32'd2080);
+      checks_run = checks_run + 1;
+      if (declared_level >= 3) begin
+        if (ooo_issue_count < 64)
+          fail(cur_test, $sformatf("OoO issued only %0d instructions", ooo_issue_count));
+        if (ooo_bypass_count == 0 || ooo_overlap_count == 0)
+          fail(cur_test, "OoO benchmark saw no bypass/overlap while the load was waiting");
+      end
+      emit_perf("teaching_ooo_overlap64", 516);
+    end
+    end_test();
+    memory_wait = 0;
+  end
+endtask
 task automatic run_benchmarks();
   begin
     suite_begin();
     benchmark_crc32();
     benchmark_array_sum();
+    benchmark_branch_predict();
+    benchmark_ooo_overlap();
     suite_end("performance_correctness");
   end
 endtask
