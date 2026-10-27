@@ -30,16 +30,24 @@
       "id": "tester",
       "type": "verify",
       "title": "04 · Tester",
-      "prompt": "Compile all RTL, run the teacher TB, and evaluate area and power. Finish when everything passes.",
+      "prompt": "Compile all RTL, run the teacher TB, and evaluate area and power. Emit test_report.json; the orchestrator compresses it into failure_packet.json.",
       "x": 960,
       "y": 200
     },
     {
-      "id": "modifier",
+      "id": "diagnoser",
       "type": "model",
-      "title": "05 · Modifier",
-      "prompt": "Repair RTL from the Tester failure report, then return to Tester for verification.",
+      "title": "05 · Diagnoser",
+      "prompt": "Read only failure_packet.json plus the relevant spec excerpt and candidate interfaces. Output repair_brief.json (root-cause hypothesis, files, symbols, constraints, verification targets). No RTL.",
       "x": 960,
+      "y": 8
+    },
+    {
+      "id": "patcher",
+      "type": "model",
+      "title": "06 · Patch Agent",
+      "prompt": "Read only repair_brief.json and the named RTL files. Return complete updated files; the orchestrator re-runs the Tester.",
+      "x": 656,
       "y": 8,
       "retry": {
         "target": "tester",
@@ -62,7 +70,11 @@
     },
     {
       "from": "tester",
-      "to": "modifier"
+      "to": "diagnoser"
+    },
+    {
+      "from": "diagnoser",
+      "to": "patcher"
     }
   ]
 }

@@ -1,0 +1,47 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 5,
+  "stage": "simulation",
+  "hypothesis": "前四轮都把问题定位在 MEM 级（dmem_valid 少 mem_write 项、rst_n 组合屏蔽、MEM 级从 memwb 前递 store 数据），但这些修复应用后 t07_load_use 与 t08_store_fwd 仍整体读回 0，说明真正的断点在 EX 级的操作数前递与 load-use 处理上，而非 MEM 输出的最后一级门控。EX/MEM 流水寄存器目前锁存的是 ID 级读出的原始寄存器值（idex_rs1_data/idex_rs2_data），而不是经 forwarding_unit 选择后的 ex_rs1_data/ex_rs2_data，因此凡是紧跟在产生该值的指令之后的消费者（store 的写数据、load 结果送入的 ALU）拿到的都是寄存器堆里的旧值（通常为 0）：t08 中 x7 应为 0x7aa 却是 0、随后 SB/SH 把 0x00 写入使 0xa5a5a5a5 变成 0xa5a5a500/0xa5a50000；t07 中 x3 应为 0x2468acf0 却是 0、x13 应为 0x8001 却是 0。同时 load-use 的暂停被 hazard_unit 以“清空 ID/EX（idex_flush）”的方式实现而没有同时保持 IF/ID（pc_hold）把依赖指令留住，于是紧跟 load 的 store 被直接丢弃（t07 DMEM 写事务期望 1 实得 0，DMEM[0x10c] 未写仍为 0xa5a5a5a5，x12 读回 0xa5a5a5a5）。这两处同属“EX 级未用前递值 + load-use 未按住依赖指令”这一根因：修复应让 EX/MEM 寄存器锁存前递后的操作数（store data 用 ex_rs2_data），并把 load-use 实现为真正的一拍暂停（pc_hold+if_flush 保留 ID 指令、只往 ID/EX 插 1 个 bubble），而不是把依赖指令冲掉。",
+  "confidence": "medium",
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/hazard_unit.sv"
+  ],
+  "symbols": [
+    "ex_rs2_data",
+    "ex_rs1_data",
+    "exmem_rs2_data",
+    "idex_rs2_data",
+    "exmem_rs1_data",
+    "pc_hold",
+    "if_flush",
+    "idex_flush",
+    "exmem_valid",
+    "dmem_valid"
+  ],
+  "constraints": [
+    "保持 rv32i5 顶层端口名/位宽与 dmem_valid/dmem_we/dmem_addr/dmem_wdata/dmem_be 语义不变",
+    "load-use 最多暂停 1 拍，依赖指令必须最终执行（不得丢弃）",
+    "dmem_valid 仍需组合与 rst_n 相与，保证首个复位沿前为 0",
+    "不得修改 teacher TB、spec 或评分脚本，不得硬编码测试向量",
+    "store 的 dmem_we=1、dmem_be 由 mem_size/地址低位生成、dmem_addr=目标地址保持不变",
+    "模块边界与端口冻结，仅改内部前递/暂停逻辑"
+  ],
+  "verification_targets": [
+    "power_on_reset: 首个复位沿前 dmem_valid == 0",
+    "t07: DMEM 写事务数 == 1",
+    "t07: x3 == 0x2468acf0",
+    "t07: x12 == 0x00008000 且 DMEM[0x0000010c] == 0x00008000",
+    "t07: x13 == 0x00008001",
+    "t08: x7 == 0x000007aa、x8 == 0xa5a5a5aa、x9 == 0xa5a507aa",
+    "直线 ALU 程序稳态 CPI == 1，load-use 仅 1 拍 bubble"
+  ],
+  "rejected_hypotheses": [
+    "attempt1: 编译/elaboration 工具链不支持 constant-select（已进入仿真，非根因）",
+    "attempt2: ex_stage 端口列表不匹配（已 elaborate 通过，非根因）",
+    "attempt3: dmem_valid 少 mem_write 项 + 缺 rst_n 屏蔽（已应用，power_on_reset 与 store 仍失败）",
+    "attempt4: 在 MEM 级把 memwb_wb_data 前递进 dmem_wdata 并再次加 rst_n 屏蔽（已应用，t07/t08 仍读回 0，说明断点在 EX 级前递与 load-use 暂停而非 MEM 输出门控）"
+  ],
+  "packet_ref": null
+}

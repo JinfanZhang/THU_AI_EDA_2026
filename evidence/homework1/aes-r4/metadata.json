@@ -1,0 +1,29 @@
+{
+  "task_name": "homework_aes128",
+  "spec_path": "/home/jinfan_zhang/THU_AI_EDA_2026/content/tasks/homework_aes128/spec.md",
+  "testbench_path": "/home/jinfan_zhang/THU_AI_EDA_2026/content/tasks/homework_aes128/tb.sv",
+  "testbench_top": "tb_homework_aes128",
+  "timeout_seconds": 20,
+  "task_spec_sha256": "5e83482062522f9c20e7e949a1f7b27777509d990fdd59a9a13c900de08db493",
+  "prompt_source": "/home/jinfan_zhang/THU_AI_EDA_2026/content/prompts/homework/H1_lowarea.md",
+  "prompt_sha256": "be2ebaa4703122cb6cc4dcaea0b47bed3edd5ddcba25783500fb51bd894c9717",
+  "raw_response_sha256": "5d67341f50bb1d1233f231308673c8cf717345c672c4eeb63e1b8e61282f961e",
+  "reasoning_available": true,
+  "rtl_sha256": "f6b0e960815e2ecf8abbee80d03b354508ff38b53019053304f7ae49337a2ac9",
+  "model": "deepseek-flash",
+  "base_url": "https://api.deepseek.com",
+  "thinking": true,
+  "reasoning_effort": "low",
+  "temperature": null,
+  "max_tokens": 60000,
+  "created_at": "2026-10-27T05:58:45.946117+00:00",
+  "generation_mode": "single_call_streamed",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 2192,
+    "completion_tokens": 27154,
+    "total_tokens": 29346
+  },
+  "tested": true,
+  "elapsed_seconds": 124.2
+}

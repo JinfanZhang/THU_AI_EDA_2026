@@ -1,0 +1,51 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 4,
+  "stage": "simulation",
+  "hypothesis": "MEM 级的存储器写接口仍然是错的，但原因不再是第 3 轮修的那个“valid 少一项 mem_write”，而是 store 数据通路：`dmem_wdata` 直接来自 EX/MEM 流水寄存器保存的 ID 级 rs2 读取值（`exmem_rs2_data`），没有把后级 `memwb_wb_data`（或更老的 exmem_alu_result）前递进 store 数据。于是当要写的值由前面的 load/ALU 指令产生时（t07 的 load-use、t08 的 store-fwd），MEM 拿到的是那一刻 regfile 里的旧值（通常为 0），写事务照常发出但写入的字节/半字是 0x00：t08 中 `0xa5a5a5a5` 被 SB 0xaa 写后变成 `0xa5a5a500`、被 SH 0x07aa 写后变成 `0xa5a50000`，t07 的 `DMEM[0x10c]` 仍是 `0xa5a5a5a5` 而写事务数也不匹配（写去了错误数据/位置），随后所有依赖该存储字的 load 都读到 0（x3=0、x7=0、x13=0、x8=0xde）。同一存储器接口上还有第二个机制一致的点：顶层 `dmem_valid/dmem_we/dmem_addr/dmem_wdata` 是由 X 初值的 EX/MEM 寄存器组合导出，没有按 spec 用 `rst_n` 做组合屏蔽，于是首个复位沿之前 `dmem_valid` 为 X，power_on_reset 失败。两处都落在 'MEM 级 store 数据与输出门控' 这一条根因上：store 数据必须按 memwb→MEM 前递选择后再驱动 dmem_wdata，且 dmem_valid 必须以 `rst_n` 直接参与组合运算（X & 0 = 0）。",
+  "confidence": "medium",
+  "files": [
+    "rtl/mem_stage.sv",
+    "rtl/ex_stage.sv",
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "exmem_rs2_data",
+    "exmem_rs2_addr",
+    "memwb_valid",
+    "memwb_reg_write",
+    "memwb_rd_addr",
+    "memwb_wb_data",
+    "store_data",
+    "dmem_wdata",
+    "dmem_valid",
+    "rst_n",
+    "exmem_mem_write",
+    "exmem_alu_result"
+  ],
+  "constraints": [
+    "顶层 rv32i5 的端口名、方向与位宽保持不变（clk, rst_n, imem_*, dmem_valid/we/addr/wdata/be, dmem_rdata, dbg_reg_addr, dbg_reg_data, halted, exit_code）。",
+    "dmem_valid / dmem_we / dmem_addr / dmem_wdata / dmem_be 只能在 MEM 级由组合逻辑产生；dmem_valid 必须写成显式含 `rst_n` 的组合表达式（例如 rst_n & exmem_valid & (mem_read|mem_write)），不得来自 X 初值的寄存器或再加一级时序。",
+    "store 事务：dmem_we=1，dmem_addr=exmem_alu_result（不要重复加立即数），dmem_be 由 exmem_mem_size 与地址低两位生成，dmem_wdata 为“前递优先级 memwb > exmem_rs2_data”的 store 数据。",
+    "load 路径、MEM 级符号/零扩展、WB 写回选择与 rd!=0 丢弃逻辑保持原样，不要为了修 store 而改动 load 数据选择。",
+    "不得改变 EX 级操作数前递（forwarding_unit 的 ex_rs1_data/ex_rs2_data）、load-use 单拍暂停、控制转移 2 bubble 的行为；不得新增任何停顿或逐条串行状态。",
+    "halted=1 之后 dmem_valid 必须为 0、exit_code 保持为最终 x10 不变；ECALL 之前已在 MEM 的旧 store 仍可正常完成。",
+    "不要修改 hazard_unit / forwarding_unit 的既有端口语义，也不要改动 Teacher TB、spec 或评分脚本。",
+    "ex_stage 若需要把 exmem_rs2_addr 提供给 MEM 做 store 数据前递比较，只新增该输出并由同一 EX/MEM 时钟寄存器驱动（受 exmem_flush/rst_n 清零），不得改变已有 exmem_* 输出的时序与命名。"
+  ],
+  "verification_targets": [
+    "power_on_reset：首个 rst_n 低电平之前，dmem_valid 在每个采样点均为 0（不是 X、不是 1）；断言 `dmem_valid === 1'b0`。",
+    "t07_load_use：DMEM 写事务数 = 1（不再为 0）。",
+    "t07_load_use：DMEM[0x0000010c] = 0x00008000（不再是 0xa5a5a5a5）。",
+    "t07_load_use：x3 = 0x2468acf0、x12 = 0x00008000、x13 = 0x00008001、x8 = 0x00000000。",
+    "t08_store_fwd：x7 = 0x000007aa、x8 = 0xa5a5a5aa、x9 = 0xa5a507aa（低字节/低半字不再是 0x00）。",
+    "performance_correctness 中带 store 的用例：AI_EDA_PERF 的 dmem_writes > 0，且 CPI / stall 计数与修改前一致（直线 ALU CPI=1、load-use 最多 1 拍暂停）。",
+    "LAB_RESULT 的 20 个失败检查全部消失，bench_ooo_overlap64 仍然 checks_failures=0 且 halted=1、exit_code=0x820。"
+  ],
+  "rejected_hypotheses": [
+    "第 1 轮：把失败归为 Icarus 不支持 always_* 内的常量位选——elaborate 与仿真早已通过，本轮是纯功能失败，与工具链无关。",
+    "第 2 轮：ex_stage 缺少 9 个 exmem_* 端口导致 elaborate 报错——该问题已修复，本轮 20 个失败全部是仿真断言/数值失败，没有端口错误。",
+    "第 3 轮：仅把 dmem_valid 改成包含 exmem_mem_write 并用 rst_n 屏蔽即可——若这是全部根因，t08 的 store 就不会改动 DMEM 内容；而实测 0xa5a5a5a5→0xa5a5a500 / 0xa5a50000 说明写事务确实发生、只是写入数据为 0，真正缺失的是 MEM 级 store 数据前递，rst_n 屏蔽也只是未被真正落实到顶层 dmem_valid 表达式里。"
+  ],
+  "packet_ref": null
+}

@@ -1,0 +1,52 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 3,
+  "stage": "simulation",
+  "hypothesis": "RTL 现在已能完成 elaborate 并运行仿真，但外部数据存储器写通路完全缺失：MEM 级生成的 dmem_valid 只覆盖 load 读访问（形如 exmem_valid & exmem_mem_read），没有把 store 情形纳入（缺少 exmem_mem_write 项），并且没有按 spec 要求用 rst_n 做组合屏蔽。结果有三类可观测现象：其一，复位前 exmem_valid 为 X，dmem_valid 随之为 X，于是 power_on_reset 报 'dmem_valid must be 0 before the first reset edge'；其二，所有 store 都不会产生 dmem 写事务（t07 期望 1 个写事务、实得 0；t08 的 sb/sh 根本没有落到 DMEM，DMEM[0x10c] 仍是预置的 0xa5a5a5a5，读回值 x8=0xa5a5a500、x9=0xa5a50000 正是旧存储内容），因此随后依赖该存储字的 load 读到 0（x3 期望 0x2468acf0 得 0，x13 期望 0x8001 得 0），store-fwd 用例的 x7 也因未写入而读回 0。修复方法是在 MEM 级把 dmem_valid 改为 (exmem_valid & (exmem_mem_read | exmem_mem_write)) & rst_n，并确保 store 路径同时正确驱动 dmem_we=1、dmem_addr=exmem_alu_result、dmem_wdata=前递后的 store data、dmem_be 由 mem_size 与地址低位生成；load 数据选择/扩展与 WB 写回逻辑保持不变。",
+  "confidence": "medium",
+  "files": [
+    "rtl/mem_stage.sv",
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "dmem_valid",
+    "dmem_we",
+    "dmem_addr",
+    "dmem_wdata",
+    "dmem_be",
+    "exmem_valid",
+    "exmem_mem_read",
+    "exmem_mem_write",
+    "exmem_mem_size",
+    "exmem_alu_result",
+    "exmem_rs2_data",
+    "rst_n"
+  ],
+  "constraints": [
+    "顶层 rv32i5 端口名/位宽/方向完全不变（clk, rst_n, imem_addr, imem_rdata, dmem_valid, dmem_we, dmem_addr, dmem_wdata, dmem_be, dmem_rdata, dbg_reg_addr, dbg_reg_data, halted, exit_code）",
+    "dmem_valid 必须是与 rst_n 组合与门的输出，rst_n=0 时恒为 0；不得只在时钟沿清 valid 寄存器",
+    "dmem 无等待状态：load/store 在 MEM 级当拍给出 valid/we/addr/wdata/be，一拍完成，不引入额外握手或 stall",
+    "store 不得产生寄存器堆写回（exmem_reg_write 对 store 无效），load 仍走原有 MEM 级字节/半字选择与符号扩展路径",
+    "bubble/flush 只通过清 valid 位实现，不得用数据值判断；exmem_flush 清 exmem_valid 时必须使 dmem_valid 当拍为 0",
+    "halted 之后（含 ECALL 提交冻结）dmem_valid 必须为 0，且 ecall 与更年轻指令不得发起新的 dmem 事务",
+    "不得修改 teacher TB、spec 或评分脚本，不得硬编码测试向量",
+    "保持 EX/MEM 流水线寄存器字段与 attempt2 冻结的 ex_stage 输出端口一致，不重命名端口"
+  ],
+  "verification_targets": [
+    "power_on_reset: 第一个复位沿之前 dmem_valid 必须为 0（由 X 变为确定 0）",
+    "t07_load_use: DMEM 写事务数由 0 变为 1",
+    "t07_load_use: x3 由 0x00000000 变为 0x2468acf0",
+    "t07_load_use: x13 由 0x00000000 变为 0x00008001",
+    "t07_load_use: DMEM[0x0000010c] 由 0xa5a5a5a5 变为 0x00008000",
+    "t08_store_fwd: x7 由 0x00000000 变为 0x000007aa",
+    "t08_store_fwd: x8 由 0xa5a5a500 变为 0xa5a5a5aa",
+    "t08_store_fwd: x9 由 0xa5a50000 变为 0xa5a507aa",
+    "base 与 performance_correctness 两个套件整体通过、LAB_RESULT 由 FAIL 变为 PASS"
+  ],
+  "rejected_hypotheses": [
+    "attempt1：Icarus 'constant selects in always_*' 导致 elaborate 中止——已应用并被驳回，当前已进入 Simulation 阶段且日志显示大量仿真事件，编译/elaborate 不再是瓶颈",
+    "attempt2：ex_stage 缺少 9 个 exmem_* 输出端口导致 'port is not a port of u_ex'——已应用并被驳回，本轮无该报错，失败点已转移到存储器写事务与 load-use 语义；也正因该改动已合入，本次根因应落在 MEM 级 dmem_valid/dmem_we/be 的生成，而不是继续在 ex_stage 端口上叠加修改",
+    "load-use 冒险单元本身时序错误——不做首选：hazard_unit 若误停顿会表现为多余周期而非写事务数为 0，且性能日志显示 OOO overlap 基准无额外停顿"
+  ],
+  "packet_ref": null
+}

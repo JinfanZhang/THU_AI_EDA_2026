@@ -1,0 +1,37 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 1,
+  "stage": "compile",
+  "hypothesis": "The compile/elaboration fails specifically on the generated SystemVerilog: the log's only concrete evidence is repeated Icarus 'sorry: constant selects in always_* processes are not currently supported (all bits will be included)' at generated_attempt1.sv lines 915 and 939, followed immediately by '9 error(s) during elaboration'. This means the RTL is written with always_comb/always_ff procedural blocks that perform constant bit/part-selects (e.g. x[i], data[3:0], dmem_be[k]) inside the process body, which this iverilog build cannot elaborate. Elaboration is aborted by these unsupported constructs, so the Teacher TB never builds. The correct fix is to rewrite these known-bad procedural blocks as classic Verilog-2001 constructs (always @(posedge clk ...) for sequential, continuous assign or always @(*) with explicit intermediate wires for combinational constant selects), not to change module behavior or interfaces. The symptom is a toolchain-language-compatibility failure, not a functional/logic failure, so the repair must remove the unsupported SV forms while preserving the frozen port names, widths and handshake behavior.",
+  "confidence": "medium",
+  "files": [
+    "rtl/rv32i5.sv",
+    "rtl/mem_stage.sv",
+    "rtl/alu.sv"
+  ],
+  "symbols": [
+    "dmem_be",
+    "dmem_wdata",
+    "dmem_addr",
+    "memwb_wb_data",
+    "imem_addr",
+    "exmem_wb_sel"
+  ],
+  "constraints": [
+    "Do not change any module name or top-level port list (rv32i5, if_stage, id_stage, ex_stage, mem_stage, wb_stage, hazard_unit, forwarding_unit, alu, regfile).",
+    "Keep the frozen stage interface port names/widths/valid semantics exactly as specified.",
+    "Synchronous active-low reset semantics preserved: rst_n sampled at posedge clk only; no async reset.",
+    "dmem_valid combinational masking with rst_n preserved; dmem_valid=0 during reset and while halted=1.",
+    "dmem_be/dmem_wdata byte-lane replication and shift rules for SB/SH/SW must be unchanged in behavior.",
+    "Rewrite only the offending SystemVerilog constructs (always_comb/always_ff with constant part-selects) into Verilog-2001 always/assign; do not alter logic intent, control-flow, or pipeline valid timing.",
+    "Do not modify the teacher TB, spec, or scoring scripts; do not hardcode test vectors."
+  ],
+  "verification_targets": [
+    "Compile/elaboration completes with 0 errors: the '9 error(s) during elaboration' must drop to 0.",
+    "No remaining 'sorry: constant selects in always_* processes' warnings tied to procedural-block constant selects.",
+    "Teacher TB builds: stage advances from Compile to a simulation/results stage.",
+    "dmem_be values remain as spec (SW=4'b1111, SH=0011/1100 per addr[1], SB=1<<addr[1:0]) after rewrite."
+  ],
+  "rejected_hypotheses": [],
+  "packet_ref": null
+}

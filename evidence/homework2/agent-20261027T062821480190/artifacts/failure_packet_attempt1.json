@@ -1,0 +1,125 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261027T062821480190",
+  "attempt": 1,
+  "project_id": "rv32i5",
+  "stage": "simulation",
+  "stage_label": "Simulation",
+  "passed": false,
+  "summary": "Teacher TB failed (Simulation); failed checks: t06_load_store, bench_crc32_64bytes, bench_crc32_64bytes, bench_array_sum64.",
+  "failed_checks": [
+    {
+      "name": "t06_load_store",
+      "detail": "DMEM 读事务数期望 22 得到 23"
+    },
+    {
+      "name": "bench_crc32_64bytes",
+      "detail": "exit_code 期望 0xffbae609 得到 0xadf63534"
+    },
+    {
+      "name": "bench_crc32_64bytes",
+      "detail": "x3 期望 0x004519f6 得到 0x5209cacb"
+    },
+    {
+      "name": "bench_array_sum64",
+      "detail": "exit_code 期望 0x00000820 得到 0x00001000"
+    }
+  ],
+  "failed_check_count": 4,
+  "first_deviation": null,
+  "failing_suites": [
+    "base",
+    "performance_correctness"
+  ],
+  "log_excerpt": "erlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003d0_rdata=0x00000035\nAI_EDA_TRACE|cycle=46502|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003d4_rdata=0x00000036\nAI_EDA_TRACE|cycle=46512|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003d8_rdata=0x00000037\nAI_EDA_TRACE|cycle=46522|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003dc_rdata=0x00000038\nAI_EDA_TRACE|cycle=46532|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003e0_rdata=0x00000039\nAI_EDA_TRACE|cycle=46542|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003e4_rdata=0x0000003a\nAI_EDA_TRACE|cycle=46552|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003e8_rdata=0x0000003b\nAI_EDA_TRACE|cycle=46562|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003ec_rdata=0x0000003c\nAI_EDA_TRACE|cycle=46572|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003f0_rdata=0x0000003d\nAI_EDA_TRACE|cycle=46582|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003f4_rdata=0x0000003e\nAI_EDA_TRACE|cycle=46592|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003f8_rdata=0x0000003f\nAI_EDA_TRACE|cycle=46602|test=bench_ooo_overlap64|event=mem_read|halted=0|exit_code=0|detail=addr=0x000003fc_rdata=0x00000040\nAI_EDA_TRACE|cycle=46612|test=bench_ooo_overlap64|event=halted|halted=1|exit_code=2080|detail=run_cycles=646_budget=6000_x10=0x00000820_exit_code=0x00000820\nAI_EDA_TRACE|cycle=46612|test=bench_ooo_overlap64|event=check_exit|halted=1|exit_code=2080|detail=exit_code=0x00000820\nAI_EDA_TRACE|cycle=46612|test=bench_ooo_overlap64|event=check_reg|halted=1|exit_code=2080|detail=x10=0x00000820\nAI_EDA_PERF|benchmark=teaching_ooo_overlap64|cycles=646|instructions=516|dmem_reads=64|dmem_writes=0|branches=0|mispredicts=0|ooo_bypass=0|clock_hz=100000000\nAI_EDA_TRACE|cycle=46612|test=bench_ooo_overlap64|event=test_end|halted=1|exit_code=2080|detail=checks=1943_failures=0_cycles=646_ok=1\nAI_EDA_SUITE|name=performance_correctness|passed=0|skipped=0|checks=19431\nAI_EDA_CAPABILITY|level=0|name=rv32i|declared=0|verified=-1|expected=0|features=0\nLAB_RESULT: FAIL (4 failures / 143538 checks)\nFATAL: /home/jinfan_zhang/THU_AI_EDA_2026/content/tasks/homework_rv32i5/tb/run.svh:39: \n       Time: 466136000  Scope: tb_agent_rv32i5.u_teacher_tb",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/alu.sv",
+      "bytes": 604,
+      "sha256": "c53c17f7c431a0e9"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "bytes": 6466,
+      "sha256": "e971a2941e2f6bc8"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "bytes": 1919,
+      "sha256": "89a27d38e4e1044b"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "bytes": 1547,
+      "sha256": "515b02b641870e3a"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "bytes": 9737,
+      "sha256": "89e56c59b4d0d3b1"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "bytes": 1778,
+      "sha256": "85635301a539ab85"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "bytes": 3428,
+      "sha256": "32eb8bf4ab86c45e"
+    },
+    {
+      "path": "rtl/regfile.sv",
+      "bytes": 1705,
+      "sha256": "1db57e03ff667b66"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 9331,
+      "sha256": "d7d44dcbf3b597e5"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "bytes": 1008,
+      "sha256": "b088bde1bcae1eb8"
+    }
+  ],
+  "references": {
+    "report": "tester-01/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest.json"
+  }
+}

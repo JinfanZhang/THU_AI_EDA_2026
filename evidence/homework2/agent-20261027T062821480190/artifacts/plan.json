@@ -1,0 +1,67 @@
+{
+  "project_name": "rv32i5_pipeline",
+  "top_module": "rv32i5",
+  "modules": [
+    {
+      "name": "rv32i5",
+      "file": "rtl/rv32i5.sv",
+      "description": "Top level: instantiates if/id/ex/mem/wb stages, hazard unit, forwarding unit, regfile, alu; connects debug port, memory ports and halt/exit_code.",
+      "interfaces": "input logic clk; input logic rst_n; output logic [31:0] imem_addr; input logic [31:0] imem_rdata; output logic dmem_valid; output logic dmem_we; output logic [31:0] dmem_addr; output logic [31:0] dmem_wdata; output logic [3:0] dmem_be; input logic [31:0] dmem_rdata; input logic [4:0] dbg_reg_addr; output logic [31:0] dbg_reg_data; output logic halted; output logic [31:0] exit_code"
+    },
+    {
+      "name": "if_stage",
+      "file": "rtl/if_stage.sv",
+      "description": "Owns PC register and IF/ID pipeline register; drives imem_addr; applies redirect / stall / kill / pc_hold priority.",
+      "interfaces": "input logic clk; input logic rst_n; input logic redirect; input logic [31:0] redirect_pc; input logic stall; input logic kill; input logic pc_hold; input logic [31:0] imem_rdata; output logic [31:0] imem_addr; output logic ifid_valid; output logic [31:0] ifid_pc; output logic [31:0] ifid_pc4; output logic [31:0] ifid_instr"
+    },
+    {
+      "name": "id_stage",
+      "file": "rtl/id_stage.sv",
+      "description": "Decode, immediate generation, full control signal generation, ECALL identification; owns ID/EX pipeline register.",
+      "interfaces": "input logic clk; input logic rst_n; input logic ifid_valid; input logic [31:0] ifid_pc; input logic [31:0] ifid_pc4; input logic [31:0] ifid_instr; input logic [31:0] rs1_data; input logic [31:0] rs2_data; input logic flush; output logic [4:0] rs1_addr; output logic [4:0] rs2_addr; output logic id_is_ecall; output logic id_ex_valid; output logic [31:0] id_ex_pc; output logic [31:0] id_ex_pc4; output logic [4:0] id_ex_rs1; output logic [4:0] id_ex_rs2; output logic [4:0] id_ex_rd; output logic [31:0] id_ex_rs1_data; output logic [31:0] id_ex_rs2_data; output logic [31:0] id_ex_imm; output logic [3:0] id_ex_alu_op; output logic [1:0] id_ex_alu_a_sel; output logic [1:0] id_ex_alu_b_sel; output logic id_ex_is_branch; output logic [2:0] id_ex_branch_f3; output logic id_ex_is_jal; output logic id_ex_is_jalr; output logic id_ex_is_load; output logic id_ex_is_store; output logic [2:0] id_ex_mem_f3; output logic id_ex_reg_write; output logic id_ex_is_ecall"
+    },
+    {
+      "name": "ex_stage",
+      "file": "rtl/ex_stage.sv",
+      "description": "Operand forwarding muxes, ALU use, branch/jump resolution and redirect generation, store-data preparation; owns EX/MEM pipeline register.",
+      "interfaces": "input logic clk; input logic rst_n; input logic flush; input logic id_ex_valid; input logic [31:0] id_ex_pc; input logic [31:0] id_ex_pc4; input logic [4:0] id_ex_rs1; input logic [4:0] id_ex_rs2; input logic [4:0] id_ex_rd; input logic [31:0] id_ex_rs1_data; input logic [31:0] id_ex_rs2_data; input logic [31:0] id_ex_imm; input logic [3:0] id_ex_alu_op; input logic [1:0] id_ex_alu_a_sel; input logic [1:0] id_ex_alu_b_sel; input logic id_ex_is_branch; input logic [2:0] id_ex_branch_f3; input logic id_ex_is_jal; input logic id_ex_is_jalr; input logic id_ex_is_load; input logic id_ex_is_store; input logic [2:0] id_ex_mem_f3; input logic id_ex_reg_write; input logic id_ex_is_ecall; input logic [1:0] fwd_a; input logic [1:0] fwd_b; input logic [31:0] fwd_ex_mem_data; input logic [31:0] fwd_mem_wb_data; output logic redirect; output logic [31:0] redirect_pc; output logic ex_mem_valid; output logic [31:0] ex_mem_result; output logic [31:0] ex_mem_store_data; output logic [4:0] ex_mem_rs2; ou"
+    },
+    {
+      "name": "mem_stage",
+      "file": "rtl/mem_stage.sv",
+      "description": "Data memory transaction generation (valid/we/addr/wdata/be), MEM-stage store-data forwarding, load data selection and extension; owns MEM/WB pipeline register.",
+      "interfaces": "input logic clk; input logic rst_n; input logic halt; input logic ex_mem_valid; input logic [31:0] ex_mem_result; input logic [31:0] ex_mem_store_data; input logic [4:0] ex_mem_rs2; input logic [4:0] ex_mem_rd; input logic ex_mem_is_load; input logic ex_mem_is_store; input logic [2:0] ex_mem_mem_f3; input logic ex_mem_reg_write; input logic ex_mem_is_ecall; input logic [31:0] dmem_rdata; input logic store_fwd; input logic [31:0] mem_wb_wb_data; output logic dmem_valid; output logic dmem_we; output logic [31:0] dmem_addr; output logic [31:0] dmem_wdata; output logic [3:0] dmem_be; output logic mem_wb_valid; output logic [31:0] mem_wb_data; output logic [4:0] mem_wb_rd; output logic mem_wb_reg_write; output logic mem_wb_is_ecall"
+    },
+    {
+      "name": "wb_stage",
+      "file": "rtl/wb_stage.sv",
+      "description": "Register-file write enable/address/data, rd=x0 discard, ECALL commit detection, halted and exit_code registers.",
+      "interfaces": "input logic clk; input logic rst_n; input logic mem_wb_valid; input logic [31:0] mem_wb_data; input logic [4:0] mem_wb_rd; input logic mem_wb_reg_write; input logic mem_wb_is_ecall; input logic [31:0] x10_value; output logic rf_we; output logic [4:0] rf_waddr; output logic [31:0] rf_wdata; output logic halt_commit; output logic halted; output logic [31:0] exit_code"
+    },
+    {
+      "name": "hazard_unit",
+      "file": "rtl/hazard_unit.sv",
+      "description": "Load-use stall detection, halt-pending state for ECALL, redirect/flush generation for IF/ID and ID/EX with redirect priority.",
+      "interfaces": "input logic clk; input logic rst_n; input logic redirect; input logic halted; input logic id_is_ecall; input logic ifid_valid; input logic [31:0] ifid_instr; input logic id_ex_valid; input logic id_ex_is_load; input logic [4:0] id_ex_rd; output logic halt_pending; output logic stall_load_use; output logic flush_ifid; output logic flush_idex"
+    },
+    {
+      "name": "forwarding_unit",
+      "file": "rtl/forwarding_unit.sv",
+      "description": "EX-stage rs1/rs2 forwarding select (EX/MEM over MEM/WB, loads excluded from EX/MEM) and MEM-stage store-data forwarding select.",
+      "interfaces": "input logic id_ex_valid; input logic [4:0] id_ex_rs1; input logic [4:0] id_ex_rs2; input logic ex_mem_valid; input logic ex_mem_reg_write; input logic [4:0] ex_mem_rd; input logic ex_mem_is_load; input logic [4:0] ex_mem_rs2; input logic ex_mem_is_store; input logic mem_wb_valid; input logic mem_wb_reg_write; input logic [4:0] mem_wb_rd; output logic [1:0] fwd_a; output logic [1:0] fwd_b; output logic store_fwd"
+    },
+    {
+      "name": "alu",
+      "file": "rtl/alu.sv",
+      "description": "Combinational 32-bit RV32I ALU (ADD/SUB/SLL/SLT/SLTU/XOR/SRL/SRA/OR/AND).",
+      "interfaces": "input logic [31:0] a; input logic [31:0] b; input logic [3:0] op; output logic [31:0] y"
+    },
+    {
+      "name": "regfile",
+      "file": "rtl/regfile.sv",
+      "description": "32x32 architectural register file, x0 hardwired to 0, two combinational read ports with same-cycle write bypass, debug read port and dedicated x10 read port.",
+      "interfaces": "input logic clk; input logic rst_n; input logic we; input logic [4:0] waddr; input logic [31:0] wdata; input logic [4:0] raddr1; output logic [31:0] rdata1; input logic [4:0] raddr2; output logic [31:0] rdata2; input logic [4:0] dbg_addr; output logic [31:0] dbg_data; output logic [31:0] x10_data"
+    }
+  ],
+  "notes": "Encoding conventions frozen for all files. alu_op (4 bit): 0=ADD,1=SUB,2=SLL,3=SLT,4=SLTU,5=XOR,6=SRL,7=SRA,8=OR,9=AND. alu_a_sel (2 bit): 0=forwarded rs1, 1=id_ex_pc, 2=32'b0 (LUI). alu_b_sel (2 bit): 0=forwarded rs2, 1=id_ex_imm. LUI uses a_sel=2,b_sel=1,ADD; AUIPC uses a_sel=1,b_sel=1,ADD. branch_f3/mem_f3 carry the raw funct3. fwd_a/fwd_b (2 bit): 00=id_ex_*_data, 01=EX/MEM ex_mem_result, 10=MEM/WB mem_wb_data. fwd_ex_mem_data is ex_stage's own registered ex_mem_result routed back by the top; fwd_mem_wb_data is mem_stage's registered mem_wb_data. store_fwd=1 selects mem_wb_wb_data as MEM-stage store data, else ex_mem_store_data. halt routed to mem_stage is (halted | halt_commit); halt_commit is wb_stage combinational (mem_wb_valid && mem_wb_is_ecall). Redirect priority: in if_stage redirect > stall > (pc_hold/kill); PC update order reset > redirect > halt_pending/halted hold > load-use stall > PC+4. hazard_unit: stall_load_use is asserted only when !redirect && ifid_valid && id_ex_valid && id_ex_is_load && id_ex_rd!=0 && (id_ex_rd==ifid_instr[19:15] || (id_ex_rd==ifid_instr[24:20] && opcode!=0100011)); halt_pending is a register set when id_is_ecall && !redirect and held until reset; flush_ifid = redirect | halt_pending | halted | (id_is_ecall & ~redirect); flush_idex = redirect | halted | halt_pending. Store rs2 uses MEM-stage store-data forwarding instead of a stall. The top drives if_stage.kill from flush_ifid, if_stage.pc_hold from (halt_pending|halted|stall_load_use), id_stage.flush from flush_idex, ex_stage.flush from (halted|halt_commit), mem_stage.halt from (halted|halt_commit). dmem_valid is asserted only as rst_n && !halt && ex_mem_valid && (ex_mem_is_load||ex_mem_is_store); dmem_we only for stores; load data sampled from dmem_rdata at the MEM/WB clock edge and byte/halfword-selected by ex_mem_result[1:0]. ECALL commits only at WB (mem_wb_valid && mem_wb_is_ecall): halted<=1 and exit_code<=x10_value on that edge; reset clears halted and exit_code. Regi"
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 6,
+  "stage": "simulation",
+  "hypothesis": "负载/读取后紧邻消费者（store 数据、地址计算、ALU 运算）拿到的操作数仍是寄存器堆里的旧值（初值 0），而不是经前递/暂停后的正确值。具体机制：load-use 依赖没有被真正‘暂停一拍再前递’，而是要么消费者被清掉（t07 中 store 完全没发出：DMEM 写事务期望 1 实得 0、DMEM[0x10c] 未写仍为 0xa5a5a5a5，x12 读回旧存储字；x13 应为 0x8001 却是 0），要么消费者照常执行但写数据/地址取自未前递的 rs2/rs1（t08 中 x7 应为 0x7aa 却是 0，于是 SB 0x00 把 0xa5a5a5a5 变 0xa5a5a500、SH 0x0000 变 0xa5a50000，x8/x9 分别得 0xa5a5a500/0xa5a50000；t07 的 x3 应为 0x2468acf0 却是 0）。这与第 5 轮不同：不是简单把 forwarded ex_rs2 锁进 EX/MEM 就行——当生产者是 load 时其结果在 EX 时还不可用，必须由 hazard_unit 正确产生‘保持 IF/ID、只向 ID/EX 注入 1 个 bubble、绝不冲掉依赖指令’的 load-use 暂停，并由 forwarding_unit 在正确级（MEM 阶段从 memwb_wb_data 前递 store 数据；EX 阶段按 EX/MEM 优先于 MEM/WB 的优先级前递 rs1/rs2）补齐。另有一个独立但同属 output-gating 的结构缺陷：顶层 dmem_valid 仍由含 X 的 EX/MEM 寄存器组合导出而未用 rst_n 做组合屏蔽，导致第一个复位沿之前为 X，power_on_reset 失败；应以 rst_n 直接参与组合（X & 0 = 0）。",
+  "confidence": "medium",
+  "files": [
+    "rtl/hazard_unit.sv",
+    "rtl/forwarding_unit.sv",
+    "rtl/mem_stage.sv"
+  ],
+  "symbols": [
+    "load_use",
+    "pc_hold",
+    "if_flush",
+    "idex_flush",
+    "ex_rs1_data",
+    "ex_rs2_data",
+    "memwb_wb_data",
+    "exmem_alu_result",
+    "dmem_valid",
+    "dmem_wdata",
+    "exmem_mem_write",
+    "idex_rs1_addr"
+  ],
+  "constraints": [
+    "顶层 rv32i5 端口列表、位宽、方向保持不变；不得改名或增删端口",
+    "dmem_valid 必须以 rst_n 直接参与组合运算（rst_n 为 0 时必为 0，且复位沿之前即为 0，不能是含 X 的寄存器直出）",
+    "dmem_we 仅在该 MEM 级有效指令为 store 时为 1；load 只读不写；dmem_addr=exmem_alu_result；dmem_be 由 mem_size 与地址低位生成",
+    "load-use 恰好暂停 1 拍：暂停时保持 IF/ID 与 PC（pc_hold）、只清除/插入一个 ID/EX bubble，依赖指令不得被丢弃或冲掉；重定向 flush 时才可丢弃",
+    "forwarding 优先级：EX/MEM 优先于 MEM/WB；rd=x0 或 reg_write=0 时不前递",
+    "store 写数据必须在 MEM 级按 memwb_wb_data（以及 EX/MEM 可用值）再做一次前递选择后驱动 dmem_wdata，不能直接用 ID 级原始 rs2",
+    "valid 语义：bubble/flush 一律清 valid，不用数据值；halted 后所有 valid 清零、dmem_valid 保持 0",
+    "保持模块边界：不把逻辑塞进顶层单模块，hazard/forwarding 各司其职"
+  ],
+  "verification_targets": [
+    "power_on_reset: 第一个复位沿之前 dmem_valid == 0（非 X）",
+    "t07_load_use: x3 == 0x2468acf0",
+    "t07_load_use: x13 == 0x00008001",
+    "t07_load_use: x12 == 0x00008000",
+    "t07_load_use: DMEM[0x0000010c] == 0x00008000",
+    "t07_load_use: DMEM 写事务数 == 1",
+    "t08_store_fwd: x7 == 0x000007aa",
+    "t08_store_fwd: x8 == 0xa5a5a5aa",
+    "t08_store_fwd: x9 == 0xa5a507aa",
+    "base 与 performance_correctness 两组全部通过，总失败数由 20 降为 0"
+  ],
+  "rejected_hypotheses": [
+    "attempt1（always_* 常量选择导致 elaboration 失败）：仿真已能运行，非工具兼容性问题",
+    "attempt2（ex_stage 缺 9 个 EX/MEM 输出端口）：elaborate 已通过，端口不匹配不再是阻塞点",
+    "attempt3（dmem_valid 少 mem_write 项、store 不产生写事务）：仅修 valid 项不足以解释消费者读回 0",
+    "attempt4（MEM 级 store 数据仅缺 memwb 前递 + rst_n 屏蔽）：应用后 t07/t08 仍整体读回 0",
+    "attempt5（仅把 forwarded ex_rs2 锁进 EX/MEM 并把 load-use 改为 pc_hold+if_flush）：已应用但 t07_load_use 写事务仍为 0、t08 store 数据仍为 0，说明真正断点在 load-use 暂停与分级前递（含 forwarding_unit 优先级与 MEM 级 store 数据前递）以及 dmem_valid 的 rst_n 组合屏蔽，而非仅 EX/MEM 锁存点"
+  ],
+  "packet_ref": null
+}

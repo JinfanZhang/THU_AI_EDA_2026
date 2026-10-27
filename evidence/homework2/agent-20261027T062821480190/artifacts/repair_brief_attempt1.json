@@ -1,0 +1,49 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 1,
+  "stage": "simulation",
+  "hypothesis": "load-use 互锁的生成点在错误的位置：hazard_unit 从 EX 或 MEM 侧的 is_load 推导出 stall 信号，而不是在 ID 级比较 id_ex_rd 与 IF/ID 级使用的 rs1/rs2；同时，这个 stall 又被用于保持 EX/MEM 和 MEM 的 valid，而不是只保持 PC、IF/ID 和 ID/EX。由此产生两个可观测后果：(a) 同一条 load 在 MEM 中停留两个周期，导致 dmem_valid 连续有效两拍，t06_load_store 因此多出一次读事务，得到 23 次而不是 22 次；(b) 消费该 load 结果的指令或者前递仍然选中 EX/MEM 项（其 reg_write=1 且 rd 匹配，但数据是 ALU 结果或旧值，而不是加载数据），或者根本没有被冻结一拍，导致 crc32（大量 LBU 消费者）与 array_sum64（load→add 累加链）拿到错误操作数，最终 x3、x10 和 exit_code 全部偏离。修复方向是让 load-use 判定只依据 ID/EX 中的 load 与 ID 级源寄存器号的比较，stall 只冻结取指和译码侧并注入一个 EX bubble，同时保证一次访存只产生一拍 dmem_valid。",
+  "confidence": "medium",
+  "files": [
+    "rtl/hazard_unit.sv",
+    "rtl/forwarding_unit.sv",
+    "rtl/mem_stage.sv"
+  ],
+  "symbols": [
+    "stall",
+    "load_use_hazard",
+    "id_ex_is_load",
+    "id_ex_rd",
+    "ifid_instr",
+    "rs1_addr",
+    "rs2_addr",
+    "fwd_a",
+    "fwd_b",
+    "ex_mem_is_load",
+    "ex_mem_valid",
+    "dmem_valid"
+  ],
+  "constraints": [
+    "顶层 rv32i5 端口列表与各 stage 的冻结端口名/位宽/valid 语义不得改动；只能改内部实现",
+    "stall 只允许保持 PC、IF/ID 与 ID/EX 并给 EX 注入 bubble；不得冻结或重放 EX/MEM、MEM/WB，不得让同一次访存出现两个 dmem_valid 拍",
+    "load-use 判定必须以源级 valid=1 且 load 的 rd!=0 为前提，且只匹配真实被使用的 rs1/rs2；对 store 的 rs2 依赖按 spec 可暂停一拍或用 MEM 级 store-data 前递",
+    "前递仍须保留 EX/MEM 与 MEM/WB 两条路径且 EX/MEM 优先，x0 不参与前递；EX/MEM 中的 load 不得作为 EX 前递来源，load 数据只能经 MEM/WB 前递",
+    "dmem_valid 必须在输出级用 rst_n 与 halted 屏蔽，复位期间与 halted=1 后恒为 0；dmem_addr 在 dmem_valid=1 期间保持稳定；单周期零等待，不得插入额外等待状态或寄存 dmem_rdata",
+    "控制重定向优先级高于 load-use 暂停；冲刷只清 valid，不依赖数据值",
+    "不得修改 tb/run.svh、spec 或评分脚本，不得硬编码测试向量或伪造 halted/exit_code"
+  ],
+  "verification_targets": [
+    "t06_load_store: DMEM 读事务计数从 23 变为 22（每条 load 恰好一拍 dmem_valid），且该用例其余 load/store 数据与 be/wdata 检查保持通过",
+    "bench_crc32_64bytes: exit_code 由 0xadf63534 变为期望 0xffbae609，x3 由 0x5209cacb 变为 0x004519f6",
+    "bench_array_sum64: exit_code 由 0x00001000 变为 0x00000820",
+    "bench_ooo_overlap64（当前已通过）必须保持：halted=1、exit_code=0x00000820、x10=0x00000820、dmem_reads=64、cycles 不明显增加（load-use 最多 1 拍暂停）",
+    "直线 ALU 程序保持 CPI=1，taken 控制转移最多 2 个 bubble"
+  ],
+  "rejected_hypotheses": [
+    "load 字节/半字选择与符号扩展错误：t06_load_store 中只有读事务计数一项失败、数据检查均通过，说明 MEM 级选择扩展路径基本正确，无法解释 23 vs 22 的多余事务",
+    "ECALL halt 提交/exit_code 采样时机错误：bench_ooo_overlap64 已正确 halted=1 且 exit_code=0x820，halt 逻辑本身工作正常，不能解释另外两个 benchmark 的计算结果偏差",
+    "控制转移重定向冲刷错误导致取错指令流：日志中 dmem 读地址严格顺序递增、无重复取指或跳飞迹象，且 ooo_overlap64 的 516 条指令正常完成",
+    "store 的 dmem_we/be 错误导致数组被写坏：array_sum 与 crc32 的失败点都在 load 消费侧，而 t06 的 store 写数据检查未报错"
+  ],
+  "packet_ref": null
+}

@@ -1,6 +1,9 @@
 """固定 Agent 流程的受限 EDA 自动设计执行器。
 
-固定流水线：Parser → RTL Planner → Coder → Tester → Modifier（失败回环）。
+固定流水线：Parser → RTL Planner → Coder → Tester → Diagnoser → Patch Agent
+（失败回环）。Tester 的原始报告先由工具压成 failure_packet，Diagnoser 只读压缩证据
+产出 repair_brief，Patch Agent 只读简报与点名的文件；完整 Spec、全部 RTL 与原始报告
+不再一起塞进同一个 Prompt。
 Parser 需要补充 Spec 时通过 ``request_input`` 暂停并等待用户输入。
 """
 
@@ -27,11 +30,14 @@ from ai_eda.agent.runs import (
 from ai_eda.agent.subagents.base import RunContext
 from ai_eda.agent.subagents.coder import CoderAgent
 from ai_eda.agent.subagents.common import safe_project_path
-from ai_eda.agent.subagents.modifier import ModifierAgent
+from ai_eda.agent.subagents.diagnoser import DiagnoserAgent
+from ai_eda.agent.subagents.failure_packet import build_failure_packet
 from ai_eda.agent.subagents.parser import ParserAgent
+from ai_eda.agent.subagents.patch_agent import PatchAgent
 from ai_eda.agent.subagents.planner import PlannerAgent
 from ai_eda.agent.subagents.tester import TesterAgent
 from ai_eda.config import AGENT_RUNS_ROOT
+from ai_eda.model.client import ModelClient
 
 EventSink = Callable[[dict[str, Any]], None]
 
@@ -122,11 +128,14 @@ def _seed_modifier_input(
     plan_ref: str,
     manifest_ref: str,
 ) -> Path:
-    """为从 Modifier 失败点续跑重建 Tester → Modifier 输入。"""
+    """为从失败点续跑重建 Tester → 修复链的输入 handoff。"""
     source_dir = source["source"]
-    candidates = sorted((source_dir / "handoffs").glob("tester_to_modifier_attempt*.json"))
+    candidates = sorted(
+        list((source_dir / "handoffs").glob("tester_to_modifier_attempt*.json"))
+        + list((source_dir / "handoffs").glob("tester_to_diagnoser_attempt*.json"))
+    )
     if not candidates:
-        raise ValueError("上一次运行没有 Tester → Modifier handoff，无法从 Modifier 续跑")
+        raise ValueError("上一次运行没有 Tester → Diagnoser handoff，无法从修复环节续跑")
     record = json.loads(candidates[-1].read_text(encoding="utf-8"))
     payload = record.get("payload") if isinstance(record, dict) else None
     artifacts = (payload or {}).get("artifacts") or {}
@@ -330,6 +339,69 @@ def run_agent(
             request_input=request_input,
             max_calls=max_calls,
         )
+        diagnoser = DiagnoserAgent(context)
+        patcher = PatchAgent(context)
+
+        def repair_round(failure_handoff: Path, attempt: int) -> Path:
+            """一轮修复：Tester 报告 → failure_packet → repair_brief → 补丁。
+
+            报告只被压缩一次，Diagnoser 与 Patch Agent 各自只读自己需要的那一份，
+            原始报告始终以 artifact 形式保留可追溯。
+            """
+            failure_payload = context.read_handoff(failure_handoff)["payload"]
+            failure_artifacts = failure_payload.get("artifacts") or {}
+            spec_href = failure_artifacts.get("spec")
+            plan_href = failure_artifacts.get("plan")
+            manifest_href = failure_artifacts.get("rtl_manifest")
+            report_href = failure_artifacts.get("report")
+            if not all(
+                isinstance(ref, str) for ref in (spec_href, plan_href, manifest_href, report_href)
+            ):
+                raise ValueError("失败回传缺少 Spec、Plan、RTL manifest 或报告 artifact")
+            round_plan = context.read_json_artifact(plan_href)
+            round_manifest = context.read_json_artifact(manifest_href)
+            round_report = context.read_json_artifact(report_href)
+            if not all(
+                isinstance(item, dict) for item in (round_plan, round_manifest, round_report)
+            ):
+                raise ValueError("失败回传 artifact 格式无效")
+            entries = round_manifest.get("files")
+            if not isinstance(entries, list) or not entries:
+                raise ValueError("RTL manifest 格式无效")
+            file_refs: dict[str, str] = {}
+            for entry in entries:
+                if (
+                    not isinstance(entry, dict)
+                    or not isinstance(entry.get("path"), str)
+                    or not isinstance(entry.get("artifact"), str)
+                ):
+                    raise ValueError("RTL manifest 含有无效文件引用")
+                file_refs[entry["path"]] = entry["artifact"]
+            round_files = {
+                path: context.read_text_artifact(ref) for path, ref in file_refs.items()
+            }
+            packet = build_failure_packet(
+                run_id=run_id,
+                attempt=attempt,
+                project_id=project["id"],
+                report=round_report,
+                plan=round_plan,
+                files=round_files,
+                references={
+                    "report": report_href,
+                    "spec": spec_href,
+                    "plan": plan_href,
+                    "rtl_manifest": manifest_href,
+                },
+            )
+            packet_ref = context.write_json_artifact(
+                f"failure_packet_attempt{attempt}.json", packet
+            )
+            brief_handoff = diagnoser.run(
+                packet_ref, attempt=attempt, spec_ref=spec_href, plan_ref=plan_href
+            )
+            return patcher.run(brief_handoff, attempt=attempt, file_refs=file_refs)
+
         if resume_from:
             resume_source = _load_resume_source(resume_from)
             effective_spec = resume_source["spec"]
@@ -409,8 +481,7 @@ def run_agent(
                         plan_ref,
                         seeded["manifest"],
                     )
-                    modifier = ModifierAgent(context)
-                    next_tester_input = modifier.run(modifier_input, 1)
+                    next_tester_input = repair_round(modifier_input, 1)
                 else:
                     # 已有完整 RTL 时直接从 Tester 继续。
                     next_tester_input = seeded["handler"]
@@ -437,7 +508,6 @@ def run_agent(
             next_tester_input = coder.run(planner_handoff)
 
         tester = TesterAgent(context)
-        modifier = ModifierAgent(context)
         while True:
             tester_attempts += 1
             tester_handoff = tester.run(next_tester_input, tester_attempts)
@@ -455,7 +525,7 @@ def run_agent(
             if tester_attempts >= int(max_tester_attempts):
                 break
             check_cancel()
-            next_tester_input = modifier.run(tester_handoff, tester_attempts)
+            next_tester_input = repair_round(tester_handoff, tester_attempts)
 
         if final_report is None:
             raise ValueError("Tester 没有产出验收报告")
@@ -495,6 +565,50 @@ def run_agent(
             "test_suites": final_report.get("test_suites"),
             "performance": final_report.get("performance"),
         }
+        usage_total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        for item in events:
+            usage = item.get("usage") or {}
+            for key in usage_total:
+                value = usage.get(key)
+                if isinstance(value, int):
+                    usage_total[key] += value
+        _write_json(
+            run_dir / "run_summary.json",
+            {
+                "schema_version": "run_summary/1",
+                "run_id": run_id,
+                "project_id": project["id"],
+                "cpu_level": project.get("expected_cpu_level"),
+                "model": ModelClient.MODEL_NAME,
+                "params": {
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "thinking": thinking,
+                    "reasoning_effort": reasoning_effort,
+                    "max_calls": max_calls,
+                    "max_repair_attempts": max_repair_attempts,
+                    "planner_skill": bool(planner_skill),
+                },
+                "model_calls": context.model_calls,
+                "tokens": usage_total,
+                "tester_attempts": tester_attempts,
+                "repair_rounds": max(0, tester_attempts - 1),
+                "wall_clock_seconds": round(time.perf_counter() - started_clock, 1),
+                "passed": passed,
+                "stage": final_report.get("stage"),
+                "metrics": final_result.get("metrics") or {},
+                "files": [item.get("path") for item in files],
+                "key_artifacts": {
+                    "result": "result.json",
+                    "events": "events.json",
+                    "spec": spec_ref,
+                    "plan": plan_ref,
+                    "rtl_manifest": manifest_ref,
+                    "report": report_ref,
+                },
+                "resumed_from": resume_from,
+            },
+        )
         _write_json(run_dir / "result.json", final_result)
         current_status = "passed" if passed else "failed"
     except AgentCancelled as error:

@@ -1,0 +1,49 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 1,
+  "stage": "simulation",
+  "hypothesis": "The load-use hazard is handled as a flush of the instruction in ID rather than as a hold: when hazard_unit detects a load in EX (idex_valid && idex_mem_read) whose idex_rd_addr matches id_rs1_addr/id_rs2_addr, it asserts pc_hold together with if_flush/idex_flush, so the IF/ID entry holding the dependent instruction is invalidated while the PC keeps the same or advances, and only a single bubble reaches EX. The dependent instruction (and often the following one) is therefore dropped from the pipeline instead of being replayed after one stall cycle. That single mechanism explains both suites: in t07_load_use the ALU/load consumers of the load never execute, so x3 stays 0x0, x12 keeps its init pattern 0xa5a5a5a5, x13 keeps 0x0 and x8 is left with an unrelated value, and the dependent store never reaches MEM, giving DMEM write-transaction count 0 and DMEM[0x10c] unchanged at 0xa5a5a5a5; in t08_store_fwd the same dropping of the two instructions behind a load leaves x7/x11 unwritten (0x0) and leaves the store-side address/data registers unprogrammed, so the low byte/halfword writes at those addresses never occur (0xa5a5a5aa -> 0xa5a5a500, 0xa5a507aa -> 0xa5a50000). The stall path must instead freeze PC and the IF/ID register for exactly one cycle, keep the IF/ID instruction valid, and inject a bubble only into ID/EX.",
+  "confidence": "medium",
+  "files": [
+    "rtl/hazard_unit.sv",
+    "rtl/if_stage.sv",
+    "rtl/id_stage.sv"
+  ],
+  "symbols": [
+    "load_use_stall",
+    "pc_hold",
+    "if_flush",
+    "idex_flush",
+    "ifid_valid",
+    "idex_valid",
+    "idex_mem_read",
+    "idex_rd_addr",
+    "id_uses_rs1",
+    "id_uses_rs2",
+    "id_rs1_addr",
+    "id_rs2_addr"
+  ],
+  "constraints": [
+    "Do not rename or repurpose any port of rv32i5, id_stage, ex_stage, hazard_unit, forwarding_unit, alu; top-level rv32i5 interface must stay exactly as specified.",
+    "A load-use stall must last exactly one cycle: hold PC and the IF/ID pipeline register (ifid_valid stays 1 with the same instruction) and clear only the ID/EX valid bit to create the bubble; never clear a valid IF/ID instruction because of a",
+    "if_flush must be asserted only for control-transfer redirects (ex_redirect); it must never be asserted for a load-use stall, and it must flush exactly the two younger instructions (IF/ID and ID/EX) on a taken branch/JAL/JALR.",
+    "PC update priority must remain: reset > redirect > ECALL halt-freeze > load-use hold > PC+4; halted must freeze fetch and stop retiring new instructions.",
+    "Keep synchronous active-low reset semantics: every registered output (including dmem_valid) is 0 during reset and before the first reset edge; no dmem transaction while rst_n is low.",
+    "Keep both forwarding paths in forwarding_unit (EX/MEM priority over MEM/WB) and never forward to/from x0; do not weaken this while fixing the stall.",
+    "Do not modify the teacher TB, the spec, or scoring scripts, and do not hardcode test vectors or fake halted/exit_code."
+  ],
+  "verification_targets": [
+    "t07_load_use: x3 == 0x2468acf0, x8 == 0x00000000, x12 == 0x00008000, x13 == 0x00008001 (all four must flip from the current 0x0/0xde/0xa5a5a5a5/0x0).",
+    "t07_load_use: DMEM[0x0000010c] == 0x00008000 and DMEM write-transaction count == 1 (currently 0xa5a5a5a5 and 0).",
+    "t08_store_fwd: x7 == 0x000007aa, x8 == 0xa5a5a5aa, x9 == 0xa5a507aa, x11 == 0x000007aa (byte-lane and halfword-lane stores must land with the forwarded store data).",
+    "Stall accounting: exactly one bubble per load-use pair and no extra IF/ID instruction loss, so straight-line ALU code keeps CPI = 1 and the full base suite (including t01-t06) stays green.",
+    "Regression: every previously passing check remains passing and halted/exit_code behaviour of the performance_correctness benchmark is unchanged (exit_code = final x10, no dmem activity after halted)."
+  ],
+  "rejected_hypotheses": [
+    "Pure store-data-forwarding defect in forwarding_unit/ex_stage: this would corrupt store data only, but the packet shows dependent registers x3/x12/x13/x7/x11 never written at all, which requires dropped instructions, not stale operands.",
+    "Byte-enable / dmem_be or address-alignment defect in mem_stage: a be bug would still produce a write transaction, yet t07 reports DMEM write count 0, so no store ever reached MEM.",
+    "MEM/WB-to-EX forwarding priority or x0-handling defect: forwarding errors would leave the old register value (0xa5a5a5a5-class patterns) rather than the 0x0 seen, and would not suppress the store transaction.",
+    "ECALL/halt freeze bug clearing valid bits too early: the halt event in the log occurs only after 646 cycles with correct exit_code 0x820, so freezing is not what drops the instructions right after loads."
+  ],
+  "packet_ref": null
+}

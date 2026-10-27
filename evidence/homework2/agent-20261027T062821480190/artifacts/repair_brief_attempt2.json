@@ -1,0 +1,51 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 2,
+  "stage": "simulation",
+  "hypothesis": "The load-use interlock is no longer derived from the wrong place, but its *application scope* is still wrong: stall_load_use is allowed to hold the MEM-side state (ex_mem_valid / the registered dmem_valid-dmem_we-dmem_addr-dmem_wdata bundle) or dmem_valid is not a one-shot pulse qualified by 'the pipeline actually advanced'. The MEM stage therefore drives dmem_valid for two consecutive cycles for a store that happens to be resident in MEM during a load-use stall, which is exactly the observed +1 write transaction (t07: 2 writes instead of 1; t08: 8 instead of 7). The same missing 'advance' qualification delays the MEM->EX forwarding sample by one cycle and lets the consumer of the load observe the EX/MEM entry (ALU address/old value) instead of the load data, so the LBU-heavy crc32 loop and the load->add accumulation chain of array_sum64 compute on stale operands: x3 = 0x5209cacb instead of 0x004519f6 and exit_code = 0x00001000 instead of 0x00000820. Fix direction: make stall_load_use freeze ONLY PC, IF/ID and ID/EX, inject exactly one EX bubble by clearing the ID/EX valid without destroying the instruction in IF/ID, keep EX/MEM, MEM/WB and the memory outputs always advancing, and make dmem_valid a single-cycle qualified pulse (rst_n low or halted -> 0).",
+  "confidence": "medium",
+  "files": [
+    "rtl/hazard_unit.sv",
+    "rtl/mem_stage.sv",
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "stall_load_use",
+    "flush_ifid",
+    "flush_idex",
+    "ex_mem_valid",
+    "mem_wb_valid",
+    "dmem_valid",
+    "dmem_we",
+    "dmem_addr",
+    "dmem_wdata",
+    "fwd_a",
+    "fwd_b",
+    "store_fwd"
+  ],
+  "constraints": [
+    "Top-level port list and port names/directions of rv32i5 must stay exactly as frozen in the spec.",
+    "Synchronous active-low reset: dmem_valid, dmem_we, halted, exit_code and every registered output must be 0 during rst_n low and before the first reset edge.",
+    "stall_load_use must freeze only PC, IF/ID and ID/EX for exactly one cycle and inject exactly one bubble into EX; it must never clear or drop a valid instruction from IF/ID.",
+    "EX/MEM and MEM/WB registers must never be frozen by stall_load_use; each in-flight instruction may drive dmem_valid for at most one cycle (one load -> one read, one store -> one write).",
+    "dmem_valid must be gated by rst_n and halted, and must be suppressed (0) in any cycle where the MEM-stage instruction does not newly advance.",
+    "Forwarding must keep both EX/MEM->EX and MEM/WB->EX paths with EX/MEM priority, never forward when rd==x0 or when the source field is x0, and a load's forwarded value must be the load data, not the ALU address.",
+    "Branch/JAL/JALR stay resolved in EX with 2-instruction flush of IF/ID and ID/EX and JALR target (rs1+imm)&32'hffff_fffe; redirect has priority over a simultaneous load-use stall.",
+    "Only WB may set halted/exit_code, and only for a committed ECALL (instruction word 32'h0000_0073); after halt, PC fetch freezes and no new dmem transaction may be issued.",
+    "Do not modify the teacher testbench, the spec, or the scoring scripts; do not hardcode test vectors or fake debug/capability flags."
+  ],
+  "verification_targets": [
+    "t07_load_use: DMEM write transaction count == 1 (currently 2) and the single write's address/data/be must match the expected store.",
+    "t08_store_fwd: DMEM write transaction count == 7 (currently 8) with the forwarded store data correct for every store.",
+    "t06_load_store style load test: DMEM read transaction count must stay at the expected value (22) — no regression back to 23.",
+    "bench_array_sum64: exit_code == 0x00000820 (currently 0x00001000) and the associated result register must match.",
+    "bench_crc32_64bytes: exit_code == 0xffbae609 (currently 0xadf63534) and x3 == 0x004519f6 (currently 0x5209cacb).",
+    "Steady-state straight-line ALU program must still show CPI = 1 with no extra stalls, taken control transfer at most 2 bubbles, and load-use at most 1 stall cycle."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1 hypothesis (load-use stall derived from EX/MEM-side is_load instead of an ID-level id_ex_rd vs IF/ID rs1/rs2 compare, plus stall wrongly holding EX/MEM and MEM valid): already applied, yet the same tests still fail; moreover the e",
+    "Pure forwarding-priority bug (MEM/WB preferred over EX/MEM, or missing MEM/WB path): would perturb register values but cannot explain an exact +1 DMEM write transaction in both unit tests.",
+    "Testbench/spec/scoring issue: excluded by rule; the measured write counts and exit codes are self-consistent with an RTL-issued duplicate store plus stale forwarded operands."
+  ],
+  "packet_ref": null
+}

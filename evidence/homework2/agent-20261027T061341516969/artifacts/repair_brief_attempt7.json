@@ -1,0 +1,47 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 7,
+  "stage": "simulation",
+  "hypothesis": "The residual failures are all downstream of the store path, but the mechanism is the operand-capture + load-use resolution through the EX/MEM pipeline register rather than the final MEM output. Two coupled defects share one root: (1) ex_stage latches the pre-forwarding register value `idex_rs2_data` (and `idex_rs1_data`) into `exmem_rs2_data`/`exmem_rs1_data` instead of the forwarding_unit outputs `ex_rs2_data`/`ex_rs1_data`, so a store whose rs2 is produced by a preceding ALU result captures the stale register content (0 in the tests) and drives DMEM with 0x00000000 — exactly the t08 symptom where SB 0xaa / SH 0x07aa land as 0x00 giving 0xa5a5a500 / 0xa5a50000, and x7=0. (2) On load-use, hazard_unit resolves the dependency by asserting idex_flush (clearing the ID instruction into a bubble) instead of holding IF/ID (pc_hold + if_flush) and injecting exactly one bubble, so the dependent store is discarded outright and emits no dmem write transaction — the t07 symptom of DMEM write count 0 and DMEM[0x10c] remaining 0xa5a5a5a5, which then makes every later load that reads that word come back stale (x3=0, x12=0xa5a5a5a5, x13=0, x8=0xde). A correct 1-cycle stall places the load result into MEM/WB exactly when the store reaches EX, so forwarding from memwb_wb_data closes the load-use case without MEM-stage dynamic forwarding; the pre-existing power_on_reset failure remains because dmem_valid is a combinational function of an un-initialized EX/MEM valid before the first reset edge a",
+  "confidence": "medium",
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/hazard_unit.sv",
+    "rtl/mem_stage.sv"
+  ],
+  "symbols": [
+    "exmem_rs2_data",
+    "exmem_rs1_data",
+    "ex_rs2_data",
+    "ex_rs1_data",
+    "idex_rs2_data",
+    "idex_rs1_data",
+    "id_uses_rs2",
+    "idex_mem_read",
+    "idex_rd_addr",
+    "load_use",
+    "pc_hold",
+    "if_flush"
+  ],
+  "constraints": [
+    "Keep the frozen top-level port names, widths and handshake of rv32i5 (clk, rst_n, imem_addr/rdata, dmem_valid/we/addr/wdata/be/rdata, dbg_reg_addr/data, halted, exit_code) unchanged.",
+    "Do not change stage port lists or module boundaries already frozen (id_stage/ex_stage/mem_stage/wb_stage/hazard_unit/forwarding_unit interfaces).",
+    "dmem write is a single-cycle MEM-stage pulse: dmem_valid & dmem_we assert together exactly one cycle per store, dmem_addr=exmem_alu_result, dmem_wdata = forwarded store data, dmem_be derived from mem_size and low address bits.",
+    "Reset is active-low; dmem_valid must be 0 (not X) before the first reset edge, so validity must come from state cleared by rst_n, never from an un-initialized EX/MEM valid.",
+    "Load-use must cost at most one stall cycle: hold IF/ID and PC, inject one bubble into ID/EX, never discard the dependent instruction.",
+    "Bubbles/flush must be expressed by clearing pipeline valid bits, not by data values; JAL/JALR link value is pc+4.",
+    "Do not modify the teacher TB, the spec, or scoring scripts; do not hardcode test vectors or fake debug/feature flags."
+  ],
+  "verification_targets": [
+    "power_on_reset: dmem_valid == 0 at time 0 and up to the first reset edge (no X).",
+    "t07_load_use: DMEM write transactions == 1; DMEM[0x0000010c] == 0x00008000; x12 == 0x00008000; x13 == 0x00008001; x3 == 0x2468acf0.",
+    "t07_load_use: x8 == 0x00000000.",
+    "t08_store_fwd: x7 == 0x000007aa; x8 == 0xa5a5a5aa; x9 == 0xa5a507aa.",
+    "Regression: bench_ooo_overlap64 must still halt with exit_code 0x820 and cycles ~646 (CPI degraded only if a real extra stall is introduced), and dmem_writes for store tests must be nonzero."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 3/4 (MEM-stage only): dmem_valid missing exmem_mem_write term and lack of MEM-stage store-data forward from memwb — already applied; store now issues for pure-ALU-data stores but t08 data remains 0 and t07 store is still discarded, ",
+    "Attempt 5/6 (EX forwarding + load-use stall): already applied in ex_stage/hazard_unit/forwarding_unit yet identical checks fail, so either the EX/MEM register still latches raw idex_*_data instead of forwarded ex_*_data, or the stall still "
+  ],
+  "packet_ref": null
+}

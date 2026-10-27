@@ -1,0 +1,45 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 2,
+  "stage": "compile",
+  "hypothesis": "The Compile failure is a pure port-list mismatch during elaboration, not a language/toolchain issue: rtl/rv32i5.sv instantiates the EX stage as u_ex and connects nine EX/MEM pipeline-register fields (exmem_rs2_addr, exmem_rd_addr, exmem_reg_write, exmem_mem_read, exmem_mem_write, exmem_mem_size, exmem_mem_unsign, exmem_wb_sel, exmem_is_ecall), but rtl/ex_stage.sv never declares them as outputs, so Icarus aborts with 'port ``X'' is not a port of u_ex' (9 errors) before any simulation can start. Because the errors are reported only against u_ex (no equivalent errors against the MEM stage instance), the downstream consumer already expects these signals and the top-level wiring is already correct; the missing piece is the EX/MEM register in ex_stage, which currently exports only exmem_valid / exmem_pc_plus4 / exmem_alu_result / exmem_rs2_data. The fix is to add those nine outputs to ex_stage and drive them from the same clocked EX/MEM pipeline register that produces exmem_valid (cleared by exmem_flush/reset), latched from the corresponding idex_* control/address inputs. The 'sorry: constant selects in always_* processes' lines are warnings, not errors, and did not abort elaboration in this run.",
+  "confidence": "high",
+  "files": [
+    "rtl/ex_stage.sv"
+  ],
+  "symbols": [
+    "exmem_rs2_addr",
+    "exmem_rd_addr",
+    "exmem_reg_write",
+    "exmem_mem_read",
+    "exmem_mem_write",
+    "exmem_mem_size",
+    "exmem_mem_unsign",
+    "exmem_wb_sel",
+    "exmem_is_ecall",
+    "exmem_valid",
+    "idex_rs2_addr",
+    "idex_rd_addr"
+  ],
+  "constraints": [
+    "Do not modify the top-level rv32i5 port list, names or widths (clk, rst_n, imem_*, dmem_*, dbg_reg_addr, dbg_reg_data, halted, exit_code).",
+    "Do not rename or re-width any already-declared ex_stage input/output; only add the nine missing exmem_* outputs.",
+    "The nine new outputs must be registered in the same EX/MEM pipeline register as exmem_valid, i.e. they must be latched on posedge clk from the corresponding idex_* signals and align cycle-for-cycle with exmem_valid (no purely combinational ",
+    "Reset semantics preserved: rst_n must clear the EX/MEM register (valid=0 and data fields defined), and exmem_flush must clear at least exmem_valid (bubble by clearing valid, not by corrupting data).",
+    "Keep the module boundary: ex_stage owns the EX/MEM pipeline register; do not move that register into rv32i5.sv or mem_stage.sv, and do not change mem_stage.sv's existing port names.",
+    "Do not touch the teacher TB, the spec, or any scoring script.",
+    "Leave imem/dmem handshake and ECALL handling logic untouched in this patch; fix only the port/register exposure."
+  ],
+  "verification_targets": [
+    "Compile stage: elaboration completes with 0 errors (the 9 'port ``...'' is not a port of u_ex' diagnostics disappear); only 'sorry: constant selects ...' warnings may remain.",
+    "Post-elaboration simulation must show dmem_valid = 0 while rst_n = 0, and dmem_valid = 1 only for a valid store in MEM with dmem_we = 1.",
+    "A store followed by an ECALL: the older store's dmem transaction is visible in MEM at its normal cycle, then after halted registers, dmem_valid stays 0 and exit_code equals the final x10 value.",
+    "dbg_reg_data must read back the architectural value of the register selected by dbg_reg_addr, confirming the EX/MEM fields now reaching mem/wb carry correct rd/wb_sel/reg_write information."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1 hypothesis that the failure was caused by unsupported SystemVerilog constant selects inside always_comb/always_ff and required rewriting all such blocks to Verilog-2001: this run shows those constructs only produce 'sorry: constan",
+    "Hypothesis that the top-level rv32i5.sv should be changed to stop connecting the nine exmem_* signals: rejected because no equivalent 'not a port of u_mem' errors appear, meaning the MEM-stage consumer already declares these inputs and the ",
+    "Hypothesis of a functional hazard/forwarding bug causing wrong results: rejected because the run never reaches simulation; the failure is confined to elaboration."
+  ],
+  "packet_ref": null
+}

@@ -1,0 +1,244 @@
+{
+  "passed": true,
+  "stage": "simulation",
+  "summary": "Teacher TB passed (Simulation). Verified CPU level: L0.",
+  "metrics": {
+    "status": "ok",
+    "library": "gscl45nm.lib",
+    "top_module": "rv32i5",
+    "area": 37894.5671,
+    "area_unit": "library area units (gscl45nm)",
+    "power_status": "ok",
+    "power_reason": null,
+    "power_method": "OpenSTA gate-level VCD estimate",
+    "internal_power_w": 0.006,
+    "switching_power_w": 0.00122,
+    "dynamic_power_w": 0.00722,
+    "leakage_power_w": 0.000184,
+    "total_power_w": 0.00739,
+    "vcd_scope": "tb_power_agent_rv32i5/dut"
+  },
+  "spec": "# 课后作业：RV32I 五级流水线处理器\n\n> 本文件是独立的 L0 Spec，包含完整实现要求；不需要读取或参考其他 Spec 文件。\n\n## 1. 任务目标\n\n实现一个可综合的 RV32I 五级流水线处理器，顶层模块名为 `rv32i5`。处理器采用分离的指令 / 数据存储器接口（Harvard），每级一拍、无等待状态；外部 testbench 通过固定的顶层端口提供指令与数据存储模型，并通过 `halted` / `exit_code` 观测停机。\n\n必须按 IF / ID / EX / MEM / WB 拆分模块，实现数据前递、load-use 暂停与控制冒险冲刷；不得实现成逐条串行的多周期状态机。\n\n## 2. 顶层接口（固定）\n\n端口名、方向、位宽固定，不得增删或改名；内部子模块端口由实现者自行规划。\n\n```systemverilog\nmodule rv32i5 (\n    input  logic        clk,\n    input  logic        rst_n,\n    output logic [31:0] imem_addr,\n    input  logic [31:0] imem_rdata,\n    output logic        dmem_valid,\n    output logic        dmem_we,\n    output logic [31:0] dmem_addr,\n    output logic [31:0] dmem_wdata,\n    output logic [3:0]  dmem_be,\n    input  logic [31:0] dmem_rdata,\n    input  logic [4:0]  dbg_reg_addr,\n    output logic [31:0] dbg_reg_data,\n    output logic        halted,\n    output logic [31:0] exit_code\n);\n```\n\n## 3. 存储器接口语义\n\n### 3.1 指令存储器\n\n- `imem_addr` 为当前 IF 级取指字节地址，低 2 位恒为 0（字对齐）。\n- 指令存储器为组合读、零等待：同一拍内 `imem_rdata` 返回 `imem_addr` 所指的 32-bit 指令字。\n- IF 级只在时钟沿更新 PC，因此 `imem_addr` 在一拍内保持稳定。\n- 程序从地址 0 开始；不要求支持非对齐取指。\n\n### 3.2 数据存储器\n\n- `dmem_valid` 在 MEM 级存在有效 load/store 时拉高恰好一个周期；复位期间及 `halted=1` 期间必须为 0。\n- load：`dmem_we=0`，`dmem_addr` 为访存字节地址；`dmem_be`、`dmem_wdata` 不参与写（可为任意值）。\n- store：`dmem_we=1`，外部存储器在 `dmem_valid && dmem_we` 的时钟上升沿按 `dmem_be` 逐字节写入。\n- `dmem_rdata` 为组合读、零等待：在 `dmem_valid=1` 的整个时钟周期内，`dmem_rdata` 必须等于以 `{dmem_addr[31:2], 2'b00}` 为起始的小端 32-bit 字；load 在 MEM 级当拍末（MEM/WB 寄存器沿）采样，并按 `dmem_addr[1:0]` 选择字节 / 半字并做符号或零扩展。\n- `dmem_addr` 在 `dmem_valid=1` 的周期内必须保持稳定。`dmem_valid=0` 时 `dmem_we` / `dmem_addr` / `dmem_wdata` / `dmem_be` 为 don't-care，外部存储模型不得据此写入；`dmem_we` 仅在有效 store 且 `dmem_valid=1` 时为 1。\n- `dmem_wdata` 按访问宽度复制到四个字节 lane，`dmem_be` 选择真正写入的 lane（`be[i]` 对应字节地址 `addr[1:0]==i`）：\n  - `SW`：`dmem_wdata = store_data[31:0]`，`dmem_be = 4'b1111`\n  - `SH`：`dmem_wdata = {2{store_data[15:0]}}`，`dmem_be = dmem_addr[1] ? 4'b1100 : 4'b0011`\n  - `SB`：`dmem_wdata = {4{store_data[7:0]}}`，`dmem_be = 4'b0001 << dmem_addr[1:0]`\n- 所有 load/store 均自然对齐（`LH/SH` 要求 `addr[0]=0`，`LW/SW` 要求 `addr[1:0]=00`）；程序保证不出现非对齐访问，非对齐行为不作要求。\n- 写数据 `store_data` 为经过前递的 `rs2` 值；`SB/SH` 只使用其低位。\n\n### 3.3 调试端口与时钟\n\n- `dbg_reg_addr` 选择架构寄存器 `x0..x31`，`dbg_reg_data` 组合读出其当前值；`x0` 恒读 0；不含前递；只读，不要求调试写端口。\n- 单时钟域，`clk` 周期 10 ns（100 MHz），由外部 testbench 驱动。\n\n## 4. 复位与停机协议\n\n- `rst_n` 为同步低有效复位，只在 `clk` 上升沿生效；不实现异步复位。\n- 复位沿（采样到 `rst_n=0` 的上升沿）：PC 清零到 `0x0000_0000`、32 个架构寄存器清零、全部流水线 valid 清零、`halted=0`、`exit_code=0`，且不产生任何数据存储器写（`dmem_valid=0`）。\n- `rst_n=0` 期间（包括第一个复位上升沿之前）`dmem_valid` 必须为 0；实现应在输出级用 `rst_n` 组合屏蔽已进入 MEM 的 store，避免复位沿写入外部存储器。复位期间不检查 `imem_addr` / `dmem_addr` / `dmem_wdata` / `dmem_be` 的具体值。\n- 复位优先于所有控制动作：`rst_n=0` 的上升沿丢弃同拍的分支重定向、`ECALL` 提交和 store 写请求，`halted` / `exit_code` 清零。复位释放后从 PC 0 开始取指。\n- `halted` / `exit_code` 是寄存器输出；在 ECALL 提交沿之后（从下一拍起）才要求 `halted=1` 且 `exit_code` 等于最终 `x10`。\n- `ECALL`（指令字恰为 `32'h0000_0073`）是本任务唯一的停机约定：它按普通指令流经流水线，不进入异常 / CSR / trap 流程，自身不写寄存器、不访问数据存储器。\n- `ECALL` 在 ID 级被识别、且当拍没有更老的控制转移重定向时进入 halt-pending 状态：PC 保持，IF/ID 每拍写入 `valid=0`（后续取到的指令全部丢弃），不得产生新的数据存储器事务；比它更老的指令继续完成并提交。\n- 在 halt-pending 期间，`ECALL` 自身必须作为有效指令继续经 EX → MEM → WB 前进，不得在 ID/MEM 级提前置位 `halted`，也不得写寄存器或访问数据存储器。\n- 当 `ECALL` 到达 WB 级并在该时钟沿提交时：置 `halted=1`，同时 `exit_code ← x10`。该时刻所有更老指令均已提交，`x10` 已是最终值。\n- 若更老的控制转移冲刷掉 ID 级的 `ECALL`，则该 `ECALL` 不产生停机；只有实际提交到 WB 的 `ECALL` 才置位 `halted`。\n- `halted=1` 后保持到下一次复位：流水线停止推进（或全部 valid 清零），WB 不得再写寄存器，`dmem_valid=0`，PC 与 `imem_addr` 保持停机时的值；架构寄存器保持稳定，因此同一 `dbg_reg_addr` 下 `dbg_reg_data` 保持稳定，`exit_code` 保持稳定。\n- `halted=0` 时 `exit_code=0`；`halted=1` 期间 `exit_code` 稳定等于停机时的 `x10`。\n\n## 5. 指令集范围与语义\n\n仅实现 RV32I 的下列子集，指令均为 32-bit 定长、4 字节对齐。\n\n### 5.1 整数运算 / 逻辑 / 移位\n\n- R 型：`ADD`、`SUB`、`SLL`、`SLT`、`SLTU`、`XOR`、`SRL`、`SRA`、`OR`、`AND`\n- I 型：`ADDI`、`SLTI`、`SLTIU`、`XORI`、`ORI`、`ANDI`\n- 立即数移位：`SLLI`、`SRLI`、`SRAI`，移位量取 `imm[4:0]`；寄存器移位 `SLL/SRL/SRA` 的移位量取 `rs2[4:0]`\n- `SLT/SLTI` 按 32 位补码有符号比较；`SLTU/SLTIU` 按无符号比较（`SLTIU` 的立即数先按标准符号扩展、再按无符号比较）；`SRA/SRAI` 为算术右移。\n\n### 5.2 上位立即数\n\n- `LUI`：`rd = {inst[31:12], 12'b0}`\n- `AUIPC`：`rd = pc + {inst[31:12], 12'b0}`，`pc` 为 `AUIPC` 自身的地址。\n\n### 5.3 Load / Store\n\n- Load：`LB`、`LH`、`LW`、`LBU`、`LHU`；Store：`SB`、`SH`、`SW`\n- load / store 的有效地址 = 前递后的 `rs1 + sext(imm[11:0])`。\n- load 数据按 `funct3` 符号 / 零扩展后写回；store 写数据取自前递后的 `rs2`。\n\n### 5.4 控制转移\n\n- 条件分支：`BEQ`、`BNE`、`BLT`、`BGE`、`BLTU`、`BGEU`；无条件跳转：`JAL`、`JALR`\n- 分支条件与跳转目标在 EX 级用前递后的操作数解析；没有分支延迟槽。\n- `JAL`：`rd = pc + 4`（`pc` 为 `JAL` 自身地址），目标 = `pc + sext(J 型立即数)`。\n- `JALR`：`rd = pc + 4`，目标 = `(rs1 + sext(I 型立即数)) & 32'hFFFF_FFFE`。\n- 有效程序保证所有控制转移目标 4 字节对齐（PC[1:0] 恒为 00）。\n\n### 5.5 不支持\n\n- 不支持 `M`/`A`/`F`/`D` 扩展、压缩指令、`FENCE`、CSR、异常、中断和调试指令。\n- 除 `ECALL` 外的 system 指令无需实现；非法指令行为不作要求，但不得破坏已定义指令的正确性。\n\n### 5.6 有效程序假设\n\n- 程序从地址 0 开始，并以一条可提交到 WB 的 `ECALL` 结束；因此 `halted` 最终必然出现。\n- 所有指令地址、分支目标和跳转目标均 4 字节对齐；load/store 自然对齐且地址位于外部存储模型范围内。\n- 不出现非法指令、非对齐访问或越界访问；这些情况的行为不在本 Spec 定义范围内。\n\n## 6. 标准编码、立即数与地址规则\n\n### 6.1 编码\n\n| 类型 | opcode | funct3 / funct7 |\n|---|---|---|\n| R 型 | `0110011` | ADD `000/0000000`、SUB `000/0100000`、SLL `001/0000000`、SLT `010/0000000`、SLTU `011/0000000`、XOR `100/0000000`、SRL `101/0000000`、SRA `101/0100000`、OR `110/0000000`、AND `111/0000000` |\n| I 型 ALU | `0010011` | ADDI `000`、SLTI `010`、SLTIU `011`、XORI `100`、ORI `110`、ANDI `111`；SLLI `001/0000000`、SRLI `101/0000000`、SRAI `101/0100000` |\n| Load | `0000011` | LB `000`、LH `001`、LW `010`、LBU `100`、LHU `101` |\n| Store | `0100011` | SB `000`、SH `001`、SW `010` |\n| Branch | `1100011` | BEQ `000`、BNE `001`、BLT `100`、BGE `101`、BLTU `110`、BGEU `111` |\n| JAL | `1101111` | — |\n| JALR | `1100111` | `000` |\n| LUI | `0110111` | — |\n| AUIPC | `0010111` | — |\n| ECALL | `1110011` | 指令字恰为 `32'h0000_0073` |\n\n### 6.2 立即数格式（均按 RV32I 标准）\n\n- I 型：`imm = sext(inst[31:20])`；S 型：`imm = sext({inst[31:25], inst[11:7]})`\n- B 型：`imm = sext({inst[31], inst[7], inst[30:25], inst[11:8], 1'b0})`\n- U 型：`imm = {inst[31:12], 12'b0}`；J 型：`imm = sext({inst[31], inst[19:12], inst[20], inst[30:21], 1'b0})`\n\n### 6.3 访存与字节 lane\n\n- 小端：字节地址 `a` 的数据位于 `dmem_rdata` 的 `[8*a[1:0] +: 8]`。\n- 扩展规则：`LB/LBU` 取 `dmem_rdata` 的一个字节，`LH/LHU` 取由 `addr[1]` 选中的半字，`LW` 取整字；`LB/LH` 符号扩展，`LBU/LHU` 零扩展。\n- 字节使能与 `dmem_wdata` 的复制规则见 §3.2。\n\n### 6.4 分支 / 跳转目标\n\n- Taken 条件：`BEQ` 为 `rs1==rs2`、`BNE` 为 `rs1!=rs2`；`BLT/BGE` 按补码有符号比较；`BLTU/BGEU` 按无符号比较。\n- 分支目标 = 分支指令 PC + B 型立即数；`JAL` 目标 = PC + J 型立即数；`JALR` 目标 = `(rs1 + I 型立即数) & 32'hFFFF_FFFE`。\n- 链接地址 = 跳转指令 PC + 4。\n- `x0` 恒为 0：读恒为 0，任何写 `x0` 的结果被丢弃；`rd=x0` 不产生写回、前递或 load-use 暂停。\n\n## 7. 五级流水线与冒险处理\n\n### 7.1 各级职责\n\n| 级 | 职责 |\n|---|---|\n| IF | 维护 PC，驱动 `imem_addr`，锁存 `imem_rdata`；重定向后从目标取指 |\n| ID | 译码、读寄存器堆、生成立即数与全部控制信号；识别 `ECALL` |\n| EX | 操作数前递、ALU 运算、分支判断与目标计算、`JAL/JALR` 目标与链接值、store data 准备 |\n| MEM | load/store 访问 `dmem`；load 数据选择与扩展；store data 前递 |\n| WB | 写回寄存器堆（`rd!=0` 才生效）；`ECALL` 提交并置 `halted` |\n\n- 所有控制判断都必须以源级 `valid=1` 为前提：Taken 分支、`JAL`/`JALR` 重定向、`ECALL` 识别、load-use 暂停、前递命中均不得被无效流水线项触发。\n- MEM/WB 寄存器保存最终写回值，EX 级 MEM/WB 前递直接使用该值。写回数据选择如下：\n\n| 指令类别 | WB 写回数据 |\n|---|---|\n| ALU 型、`LUI` | ALU 结果（`LUI` 为 `inst[31:12] << 12`） |\n| `AUIPC` | `pc + {inst[31:12], 12'b0}` |\n| `LB/LH/LW/LBU/LHU` | MEM 级按字节/半字选择并扩展后的 load 数据 |\n| `JAL/JALR` | 跳转指令 `pc + 4` |\n\n- `wb_stage` 至少负责写回数据选择、寄存器堆写使能、`rd=x0` 丢弃以及 `halted` / `exit_code` 寄存器。\n- 性能要求：直线 ALU 程序应达到稳态 CPI = 1；load-use 最多暂停 1 拍；Taken 控制转移最多 2 个 bubble；不得实现为逐条多周期串行状态机。\n- 每个流水线寄存器均携带 valid 位；bubble / flush 一律通过清除 valid 实现，不依赖数据值。\n- 流水线寄存器至少携带：PC、PC+4、指令、`rs1/rs2` 值与编号、立即数、ALU/访存/写回控制、目标寄存器号、valid。\n- 每级每拍推进；PC 更新优先级为：复位 > 控制转移重定向 > `ECALL` 停机冻结 > load-use 暂停 > `PC+4`。\n- 除 load-use 暂停与重定向冲刷外不得停顿，不允许逐条多周期执行。\n\n### 7.2 数据前递\n\n- EX 级两个源操作数 `rs1`、`rs2` 需从 EX/MEM 与 MEM/WB 前递；`x0` 不参与前递。\n- 前递条件：来源有效、`reg_write=1`、`rd != 0`、且 `rd` 等于 EX 级源寄存器号。\n- 优先级：EX/MEM 高于 MEM/WB。\n- EX/MEM 中的 load 结果不可用于 EX 前递（load 数据在 MEM 级末才有效）；load-use 暂停保证 load 结果总是经 MEM/WB 前递。\n- store data 在 MEM 级前递：若 MEM/WB 有效且其 `rd` 等于 store 的 `rs2`（且非 0、写回有效），则 `store_data` 取 MEM/WB 的写回值，否则取 EX/MEM 传来的 `rs2` 值。\n- 分支比较、`JALR` 的 `rs1`、store 地址计算均使用前递后的值。\n- 寄存器堆写回在 WB 级时钟沿生效；同一拍 ID 读口与 WB 写口命中同一寄存器时，读口必须返回正在写入的新值（写优先，或等价的旁路），以保证间隔 ≥3 条指令的 RAW 依赖正确。\n\n### 7.3 Load-use 冒险\n\n- 若 EX 级是有效 load（将在 MEM 级产生 `dmem_valid`、`rd != 0`），且 ID 级有效指令的 `rs1` 或 `rs2` 等于该 `rd`（store 的 `rs2` 见下条），则暂停一拍：冻结 PC 与 IF/ID、清除 ID/EX 的 valid（插入 bubble），不冲刷更老指令。\n- 暂停解除后 load 已到 MEM/WB，通过 MEM/WB 前递供 EX 使用。\n- store 的 `rs2` 依赖可用 MEM 级 store data 前递消除而不暂停；若实现仍按上条暂停，同样正确，但写出数据必须正确。\n- 同一拍同时发生重定向与 load-use 暂停时，重定向优先：被暂停的指令在目标路径重新取指。\n\n### 7.4 控制冒险\n\n- 分支、`JAL`、`JALR` 在 EX 级解析。判定 Taken（`JAL/JALR` 恒 Taken）时：下一拍 PC 更新为目标地址，并在该时钟沿清除 IF/ID 与 ID/EX 的 valid，使更年轻的 IF、ID 两级指令不产生任何架构副作用。\n- 无分支延迟槽；Taken 转移最多产生 2 个 bubble（IF、ID 两级），Not-Taken 分支不产生额外 bubble。\n- `JALR` 目标依赖前递后的 `rs1`；分支 / `JAL` 目标由 EX 级 PC 与立即数计算，均在下一拍取指前给出。\n\n## 8. 模块与文件划分\n\n```text\nrtl/rv32i5.sv           module rv32i5             // 顶层\nrtl/if_stage.sv         module if_stage\nrtl/id_stage.sv         module id_stage\nrtl/ex_stage.sv         module ex_stage\nrtl/mem_stage.sv        module mem_stage\nrtl/wb_stage.sv         module wb_stage\nrtl/hazard_unit.sv      module hazard_unit         // load-use 暂停 / 控制冒险 flush\nrtl/forwarding_unit.sv  module forwarding_unit     // EX/MEM、MEM/WB 前递选择\n```\n\n- 上述 8 个文件必须存在、模块名一致，并由顶层 `rv32i5` 实例化使用。\n- 内部端口由 Planner 在规划阶段一次性冻结；各 stage 文件之间使用同一套端口名、位宽与 valid 语义，Coder 按冻结接口逐文件实现。顶层只负责例化与连线。\n- 可增加辅助模块 / 文件（如 ALU、立即数生成、寄存器堆），但不得把全部逻辑塞进顶层单个模块。\n- 允许将寄存器堆放在 `id_stage` 内，或将 ALU 独立成模块；流水线寄存器建议归属于各 stage 模块。\n\n## 9. 实现约束\n\n- 仅使用可综合的 SystemVerilog 子集：`logic`、`always_ff`、`always_comb`、`localparam`、`function` 等；所有时序状态在 `always_ff @(posedge clk)` 中更新。\n- 不使用异步复位、锁存器、`initial`、DPI、`$readmemh`、延时、外部 IP；RTL 中不使用 `include`、`package` 或 `import`（避免 Yosys/Icarus 行为分叉，跨文件常量用 `localparam` 或 parameter 传递）。\n- 面向 Yosys 前端：`function` 内不使用 `return`，用过程赋值给出返回值。\n- 位宽显式：立即数扩展、比较、移位均按 RV32I 语义处理，避免隐式截断。\n- 面积 / 功耗优先：不做不必要的大位宽复制、不保留无用流水字段，组合路径保持简单。\n- 交付为 `rtl/` 下上述文件；代码需可被 Icarus Verilog 编译、被 Yosys 综合。\n\n## Parser 补充与修正（优先于上文冲突内容）\n\n## Parser assumptions / clarifications\n\n- No blocking gaps found. The fixed top-level interface, clock/reset, ISA semantics, memory handshake, ECALL/halt protocol, debug read port, file structure, and observable test expectations are sufficiently specified.\n- Internal module port names, exact hazard/forwarding FSM encoding, pipeline-register field packing, ALU/register-file placement, and other non-externally-visible implementation details are left to Planner/Coder/Modifier and do not require user clarification.\n- During ECALL halt-pending, older instructions may still drain and complete, including an older store already in MEM; such an older store may assert `dmem_valid` according to its normal MEM-stage timing. Younger instructions and the ECALL itself must not create new data-memory transactions.\n- Once `halted=1` is registered at the ECALL WB commit edge, the pipeline is frozen or drained with all valid bits cleared; `dmem_valid` must be 0 from then on, and `exit_code` remains stable at the final `x10`.\n- Reset masking of `dmem_valid` is combinational with `rst_n` as specified, so stores present in MEM at or before a reset edge cannot write external memory.\n- The specified performance targets are treated as requirements on architectural behavior and externally observable stall/bubble counts where applicable; exact internal stall/flush signal naming and state encoding remain implementation freedom.",
+  "plan": {
+    "project_name": "rv32i5_pipeline",
+    "top_module": "rv32i5",
+    "modules": [
+      {
+        "name": "rv32i5",
+        "file": "rtl/rv32i5.sv",
+        "description": "Top level: instantiates if/id/ex/mem/wb stages, hazard_unit, forwarding_unit, regfile; wires pipeline registers and external memory/debug ports; contains no datapath logic.",
+        "interfaces": "input logic clk; input logic rst_n; output logic [31:0] imem_addr; input logic [31:0] imem_rdata; output logic dmem_valid; output logic dmem_we; output logic [31:0] dmem_addr; output logic [31:0] dmem_wdata; output logic [3:0] dmem_be; input logic [31:0] dmem_rdata; input logic [4:0] dbg_reg_addr; output logic [31:0] dbg_reg_data; output logic halted; output logic [31:0] exit_code"
+      },
+      {
+        "name": "if_stage",
+        "file": "rtl/if_stage.sv",
+        "description": "PC register, imem address driver, IF/ID pipeline register (valid/pc/pc+4/instr). PC priority: reset > redirect_en > pc_hold > pc+4.",
+        "interfaces": "input logic clk; input logic rst_n; output logic [31:0] imem_addr; input logic [31:0] imem_rdata; input logic pc_hold; input logic redirect_en; input logic [31:0] redirect_pc; input logic if_flush; output logic ifid_valid; output logic [31:0] ifid_pc; output logic [31:0] ifid_pc_plus4; output logic [31:0] ifid_instr"
+      },
+      {
+        "name": "id_stage",
+        "file": "rtl/id_stage.sv",
+        "description": "Decode, immediate generation, control generation, ECALL detect, rs1/rs2 read-address drive for regfile, ID/EX pipeline register.",
+        "interfaces": "input logic clk; input logic rst_n; input logic ifid_valid; input logic [31:0] ifid_pc; input logic [31:0] ifid_pc_plus4; input logic [31:0] ifid_instr; output logic [4:0] id_rs1_addr; output logic [4:0] id_rs2_addr; output logic id_uses_rs1; output logic id_uses_rs2; input logic [31:0] id_rs1_data; input logic [31:0] id_rs2_data; output logic id_is_ecall; input logic idex_flush; output logic idex_valid; output logic [31:0] idex_pc; output logic [31:0] idex_pc_plus4; output logic [31:0] idex_rs1_data; output logic [31:0] idex_rs2_data; output logic [4:0] idex_rs1_addr; output logic [4:0] idex_rs2_addr; output logic [31:0] idex_imm; output logic [4:0] idex_rd_addr; output logic [3:0] idex_alu_op; output logic [1:0] idex_alu_a_sel; output logic idex_alu_b_sel; output logic idex_reg_write; output logic idex_mem_read; output logic idex_mem_write; output logic [1:0] idex_mem_size; output logic idex_mem_unsign; output logic [1:0] idex_wb_sel; output logic idex_branch; output logic [2:0] idex"
+      },
+      {
+        "name": "ex_stage",
+        "file": "rtl/ex_stage.sv",
+        "description": "ALU with forwarded operands, branch resolution, JAL/JALR target and link computation, redirect generation, EX/MEM pipeline register holding ALU result, store data and control.",
+        "interfaces": "input logic clk; input logic rst_n; input logic idex_valid; input logic [31:0] idex_pc; input logic [31:0] idex_pc_plus4; input logic [31:0] idex_rs1_data; input logic [31:0] idex_rs2_data; input logic [4:0] idex_rs1_addr; input logic [4:0] idex_rs2_addr; input logic [31:0] idex_imm; input logic [4:0] idex_rd_addr; input logic [3:0] idex_alu_op; input logic [1:0] idex_alu_a_sel; input logic idex_alu_b_sel; input logic idex_reg_write; input logic idex_mem_read; input logic idex_mem_write; input logic [1:0] idex_mem_size; input logic idex_mem_unsign; input logic [1:0] idex_wb_sel; input logic idex_branch; input logic [2:0] idex_branch_op; input logic idex_jump; input logic idex_jalr; input logic idex_is_ecall; input logic [31:0] ex_rs1_data; input logic [31:0] ex_rs2_data; output logic ex_redirect; output logic [31:0] redirect_pc; input logic exmem_flush; output logic exmem_valid; output logic [31:0] exmem_pc_plus4; output logic [31:0] exmem_alu_result; output logic [31:0] exmem_rs2_data"
+      },
+      {
+        "name": "mem_stage",
+        "file": "rtl/mem_stage.sv",
+        "description": "Data memory access (valid/we/addr/wdata/be with rst_n masking), load byte/half/word selection and sign/zero extension, store-data forwarding from its own MEM/WB register, MEM/WB writeback-value selection and register.",
+        "interfaces": "input logic clk; input logic rst_n; input logic exmem_valid; input logic [31:0] exmem_pc_plus4; input logic [31:0] exmem_alu_result; input logic [31:0] exmem_rs2_data; input logic [4:0] exmem_rs2_addr; input logic [4:0] exmem_rd_addr; input logic exmem_reg_write; input logic exmem_mem_read; input logic exmem_mem_write; input logic [1:0] exmem_mem_size; input logic exmem_mem_unsign; input logic [1:0] exmem_wb_sel; input logic exmem_is_ecall; input logic [31:0] dmem_rdata; input logic memwb_flush; output logic memwb_valid; output logic [31:0] memwb_wb_data; output logic [4:0] memwb_rd_addr; output logic memwb_reg_write; output logic memwb_is_ecall; output logic dmem_valid; output logic dmem_we; output logic [31:0] dmem_addr; output logic [31:0] dmem_wdata; output logic [3:0] dmem_be"
+      },
+      {
+        "name": "wb_stage",
+        "file": "rtl/wb_stage.sv",
+        "description": "Register-file write enable/addr/data generation (rd!=0), ECALL commit which registers halted and exit_code=x10.",
+        "interfaces": "input logic clk; input logic rst_n; input logic memwb_valid; input logic [31:0] memwb_wb_data; input logic [4:0] memwb_rd_addr; input logic memwb_reg_write; input logic memwb_is_ecall; input logic [31:0] x10_value; output logic wb_we; output logic [4:0] wb_rd_addr; output logic [31:0] wb_wb_data; output logic halted; output logic [31:0] exit_code"
+      },
+      {
+        "name": "hazard_unit",
+        "file": "rtl/hazard_unit.sv",
+        "description": "Load-use stall detection, redirect priority resolution, ECALL halt-pending register, generation of pc_hold/if_flush/idex_flush/exmem_flush/memwb_flush/redirect_en.",
+        "interfaces": "input logic clk; input logic rst_n; input logic halted; input logic ex_redirect; input logic ifid_valid; input logic id_uses_rs1; input logic id_uses_rs2; input logic [4:0] id_rs1_addr; input logic [4:0] id_rs2_addr; input logic id_is_ecall; input logic idex_valid; input logic idex_mem_read; input logic [4:0] idex_rd_addr; output logic redirect_en; output logic pc_hold; output logic if_flush; output logic idex_flush; output logic exmem_flush; output logic memwb_flush"
+      },
+      {
+        "name": "forwarding_unit",
+        "file": "rtl/forwarding_unit.sv",
+        "description": "EX operand forwarding muxes: EX/MEM (priority) over MEM/WB over ID/EX register values; ignores rd==0 and invalid/reg_write=0 sources.",
+        "interfaces": "input logic idex_valid; input logic [4:0] idex_rs1_addr; input logic [4:0] idex_rs2_addr; input logic [31:0] idex_rs1_data; input logic [31:0] idex_rs2_data; input logic exmem_valid; input logic exmem_reg_write; input logic [4:0] exmem_rd_addr; input logic [31:0] exmem_alu_result; input logic memwb_valid; input logic memwb_reg_write; input logic [4:0] memwb_rd_addr; input logic [31:0] memwb_wb_data; output logic [31:0] ex_rs1_data; output logic [31:0] ex_rs2_data"
+      },
+      {
+        "name": "regfile",
+        "file": "rtl/regfile.sv",
+        "description": "32x32 architectural register file, x0 hardwired 0, two combinational read ports with WB write-first bypass, dedicated x10 read port for exit_code, combinational debug read port.",
+        "interfaces": "input logic clk; input logic rst_n; input logic [4:0] id_rs1_addr; output logic [31:0] id_rs1_data; input logic [4:0] id_rs2_addr; output logic [31:0] id_rs2_data; input logic wb_we; input logic [4:0] wb_rd_addr; input logic [31:0] wb_wb_data; input logic [4:0] dbg_reg_addr; output logic [31:0] dbg_reg_data; output logic [31:0] x10_value"
+      },
+      {
+        "name": "alu",
+        "file": "rtl/alu.sv",
+        "description": "Optional combinational ALU helper used by ex_stage (may instead be an internal function of ex_stage; keep this file only if instantiated).",
+        "interfaces": "input logic [3:0] alu_op; input logic [31:0] alu_a; input logic [31:0] alu_b; output logic [31:0] alu_y"
+      }
+    ],
+    "notes": "Pipeline register field naming is frozen: IF/ID = ifid_valid/ifid_pc/ifid_pc_plus4/ifid_instr; ID/EX = idex_*; EX/MEM = exmem_*; MEM/WB = memwb_*. Encodings shared by id_stage and ex_stage: idex_alu_op [3:0] 0=ADD,1=SUB,2=SLL,3=SLT,4=SLTU,5=XOR,6=SRL,7=SRA,8=OR,9=AND; idex_alu_a_sel [1:0] 0=idex_rs1_data,1=idex_pc,2=32'd0 (LUI); idex_alu_b_sel 1 bit 0=ex_rs2_data,1=idex_imm; idex_wb_sel [1:0] 0=alu,1=load,2=pc+4; idex_mem_size [1:0] 0=byte,1=half,2=word with idex_mem_unsign=1 for LBU/LHU; idex_branch_op [2:0] 0=BEQ,1=BNE,2=BLT,3=BGE,4=BLTU,5=BGEU; idex_jump=1 for JAL/JALR, idex_jalr=1 for JALR. ex_stage drives ex_redirect and redirect_pc combinationally (target = JALR ? ((ex_rs1_data+idex_imm)&32'hFFFF_FFFE) : idex_pc+idex_imm); hazard_unit owns priority: redirect_en = ex_redirect & ~halted and gates it above pc_hold. hazard_unit formulas: load_use = ifid_valid & idex_valid & idex_mem_read & (idex_rd_addr!=0) & ((id_uses_rs1 & id_rs1_addr==idex_rd_addr) | (id_uses_rs2 & id_rs2_addr==idex_rd_addr)); pc_hold = halted | halt_pending | load_use; if_flush = halted | halt_pending | redirect_en; idex_flush = halted | redirect_en | load_use; exmem_flush = halted; memwb_flush = halted; halt_pending is a register inside hazard_unit set on (id_is_ecall & ifid_valid & ~redirect_en & ~halted), cleared only by rst_n, and must be 0 in the cycle the ECALL enters ID/EX so idex_flush stays low then. mem_stage: dmem_valid = rst_n & exmem_valid & (exmem_mem_read|exmem_mem_write); dmem_addr = exmem_alu_result; store_data = (memwb_valid & memwb_reg_write & memwb_rd_addr!=0 & memwb_rd_addr==exmem_rs2_addr) ? memwb_wb_data : exmem_rs2_data; dmem_wdata/dmem_be replication per spec 3.2; memwb_wb_data mux = wb_sel==0?exmem_alu_result : wb_sel==1?extended load : exmem_pc_plus4. wb_stage: wb_we = memwb_valid & memwb_reg_write & (memwb_rd_addr!=0); halted/exit_code registered on memwb_valid & memwb_is_ecall with exit_code<=x10_value. regfile writes on posedge clk with wb_we/wb_rd_addr/wb_wb_data"
+  },
+  "files": [
+    {
+      "path": "rtl/alu.sv",
+      "artifact": "project/rtl/alu.sv",
+      "bytes": 771
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "artifact": "project/rtl/ex_stage.sv",
+      "bytes": 7024
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "artifact": "project/rtl/forwarding_unit.sv",
+      "bytes": 1964
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "artifact": "project/rtl/hazard_unit.sv",
+      "bytes": 2080
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "artifact": "project/rtl/id_stage.sv",
+      "bytes": 12940
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "artifact": "project/rtl/if_stage.sv",
+      "bytes": 1584
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "artifact": "project/rtl/mem_stage.sv",
+      "bytes": 4974
+    },
+    {
+      "path": "rtl/regfile.sv",
+      "artifact": "project/rtl/regfile.sv",
+      "bytes": 1622
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "artifact": "project/rtl/rv32i5.sv",
+      "bytes": 10745
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "artifact": "project/rtl/wb_stage.sv",
+      "bytes": 922
+    }
+  ],
+  "parser_rounds": 1,
+  "supplements": [],
+  "tester_attempts": 2,
+  "resumed_from": "agent-20261027T061341516969",
+  "cpu_capability": {
+    "level": 0,
+    "name": "rv32i",
+    "declared": 0,
+    "verified": 0,
+    "expected": 0,
+    "features": 0,
+    "declared_level": 0,
+    "verified_level": 0,
+    "expected_level": 0
+  },
+  "test_suites": [
+    {
+      "name": "base",
+      "passed": true,
+      "skipped": false,
+      "checks": 124109
+    },
+    {
+      "name": "cache",
+      "passed": true,
+      "skipped": true,
+      "checks": 0
+    },
+    {
+      "name": "predictor",
+      "passed": true,
+      "skipped": true,
+      "checks": 0
+    },
+    {
+      "name": "ooo",
+      "passed": true,
+      "skipped": true,
+      "checks": 0
+    },
+    {
+      "name": "performance_correctness",
+      "passed": true,
+      "skipped": false,
+      "checks": 19464
+    }
+  ],
+  "performance": {
+    "benchmarks": [
+      {
+        "benchmark": "teaching_crc32_64bytes",
+        "cycles": 4831,
+        "instructions": 3185,
+        "dmem_reads": 64,
+        "dmem_writes": 0,
+        "branches": 0,
+        "mispredicts": 0,
+        "ooo_bypass": 0,
+        "clock_hz": 100000000,
+        "cpi": 1.516797,
+        "ipc": 0.659284
+      },
+      {
+        "benchmark": "teaching_array_sum64",
+        "cycles": 518,
+        "instructions": 324,
+        "dmem_reads": 64,
+        "dmem_writes": 0,
+        "branches": 0,
+        "mispredicts": 0,
+        "ooo_bypass": 0,
+        "clock_hz": 100000000,
+        "cpi": 1.598765,
+        "ipc": 0.625483
+      },
+      {
+        "benchmark": "teaching_branch_predict64",
+        "cycles": 487,
+        "instructions": 293,
+        "dmem_reads": 0,
+        "dmem_writes": 0,
+        "branches": 0,
+        "mispredicts": 0,
+        "ooo_bypass": 0,
+        "clock_hz": 100000000,
+        "cpi": 1.662116,
+        "ipc": 0.601643
+      },
+      {
+        "benchmark": "teaching_ooo_overlap64",
+        "cycles": 646,
+        "instructions": 516,
+        "dmem_reads": 64,
+        "dmem_writes": 0,
+        "branches": 0,
+        "mispredicts": 0,
+        "ooo_bypass": 0,
+        "clock_hz": 100000000,
+        "cpi": 1.251938,
+        "ipc": 0.798762
+      }
+    ]
+  }
+}

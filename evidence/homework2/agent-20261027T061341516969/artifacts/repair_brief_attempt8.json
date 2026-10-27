@@ -1,0 +1,46 @@
+{
+  "schema_version": "repair_brief/1",
+  "attempt": 8,
+  "stage": "simulation",
+  "hypothesis": "Seven rounds of edits inside the stage modules (ex_stage operand latch, mem_stage dmem_valid/dmem_wdata, hazard_unit load-use flush, forwarding_unit priority) all failed to move the same checks, which points at the boundary that every stage fix must cross: the top-level rv32i5.sv wiring. The store data and forwarding results that the stage fixes compute are not what actually reaches the external ports. At the top, dmem_wdata/dmem_addr/dmem_we appear to be driven from a raw EX/MEM register field (exmem_rs2_data / exmem_alu_result) instead of from mem_stage's post-forwarding store-data output, and the forwarding_unit outputs (ex_rs1_data/ex_rs2_data) are not routed into ex_stage's operand inputs (they are left on the pre-forwarded idex_rs1_data/idex_rs2_data). The net observable effect is exactly the residual symptoms: any consumer whose operand comes from the immediately preceding producer reads a stale 0, so in t08 the SB/SH of x7 (=0x7aa) land as 0x00 producing 0xa5a5a500/0xa5a50000 and x7 itself reads back 0; in t07 the dependent store never issues a real write (DMEM write count 0), DMEM[0x10c] stays at the preset 0xa5a5a5a5 so x12 reads 0xa5a5a5a5 and x3/x13 read 0. Independently, dmem_valid at the top is still a combinational function of an un-initialized EX/MEM valid without rst_n participating at the actual output mux, so it is X before the first reset edge and power_on_reset fails.",
+  "confidence": "medium",
+  "files": [
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "dmem_wdata",
+    "dmem_addr",
+    "dmem_we",
+    "dmem_valid",
+    "ex_rs1_data",
+    "ex_rs2_data",
+    "exmem_rs2_data",
+    "memwb_wb_data",
+    "rst_n"
+  ],
+  "constraints": [
+    "Keep the rv32i5 top-level port list, widths and names exactly as frozen in the spec.",
+    "Do not change stage-module port contracts (id_stage/ex_stage/mem_stage/hazard_unit/forwarding_unit signatures are frozen).",
+    "dmem_valid must be a combinational AND that includes rst_n (X & 0 = 0) so it is 0 strictly before and during reset.",
+    "Load/store remain single-cycle no-wait-state; only load-use and control redirects may stall.",
+    "Bubble/flush must be expressed by clearing valid bits, never by data values.",
+    "rd=x0 writes must be discarded; halted/exit_code must latch at ECALL WB commit and freeze the pipeline.",
+    "dmem_we=1 only for stores; dmem_be derived from mem_size and addr[1:0].",
+    "The store data reaching dmem_wdata must be the forwarding-resolved operand (memwb/EX-MEM forwarded), not the raw ID-stage regfile read."
+  ],
+  "verification_targets": [
+    "power_on_reset: dmem_valid == 0 (not X) on every sample before the first reset edge.",
+    "t07_load_use: DMEM write transaction count == 1 (currently 0).",
+    "t07_load_use: DMEM[0x0000010c] == 0x00008000 (currently 0xa5a5a5a5).",
+    "t07_load_use: x3 == 0x2468acf0, x12 == 0x00008000, x13 == 0x00008001.",
+    "t08_store_fwd: x7 == 0x000007aa (currently 0x00000000).",
+    "t08_store_fwd: after SB the word reads 0xa5a5a5aa and after SH 0xa5a507aa (currently 0xa5a5a500 and 0xa5a50000), so x8 == 0xa5a5a5aa and x9 == 0xa5a507aa."
+  ],
+  "rejected_hypotheses": [
+    "attempt2: EX/MEM pipeline register missing outputs in ex_stage — ports now elaborate, simulation runs, so this is resolved and not causal.",
+    "attempt3/4: mem_stage dmem_valid missing the mem_write term and dmem_wdata not forwarded — applied, yet t08 still shows stores writing 0x00 and t07 still shows 0 write transactions.",
+    "attempt5/6/7: ex_stage latching idex_rs2_data instead of ex_rs2_data and hazard_unit flushing the dependent instruction into a bubble on load-use — applied, but t08 producer register x7 still reads 0 and t07 store still missing, so the stag",
+    "attempt6/7: forwarding_unit MEM/WB→EX priority plus one-cycle stall — applied, residual failures unchanged, so the gap is at rv32i5.sv wiring not the forwarding_unit body."
+  ],
+  "packet_ref": null
+}
