@@ -137,15 +137,47 @@ class DiagnoserAgent(SubAgent):
         event = self.runtime.begin_event(
             "diagnoser", self.node_type, f"{self.title} · Round {attempt}", prompt, attempt
         )
-        result = self.runtime.call_model(
-            event,
-            prompt,
+        system_prompt = (
             DIAGNOSER_SYSTEM_PROMPT
             + "\n\n"
-            + checklist_for(self.runtime.options.get("project")),
-            model_options={"thinking": True},
+            + checklist_for(self.runtime.options.get("project"))
         )
-        payload = extract_json_payload(result.get("answer") or "")
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+
+        # 模型偶尔会返回截断或带解释的文本；这里像 Patch Agent 一样再要一次严格 JSON。
+        payload: dict[str, Any] = {}
+        last_error: ValueError | None = None
+        for parse_attempt in range(1, 3):
+            if parse_attempt > 1:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"上一次输出不是合法 JSON（{last_error}）。"
+                            "请只输出一个 JSON 对象：hypothesis / confidence / files / "
+                            "symbols / constraints / verification_targets / rejected_hypotheses，"
+                            "不要 Markdown 围栏或解释文字。"
+                        ),
+                    }
+                )
+            result = self.runtime.call_model_messages(
+                event, messages, model_options={"thinking": True}
+            )
+            answer = result.get("answer") or ""
+            messages.append({"role": "assistant", "content": answer})
+            try:
+                payload = extract_json_payload(answer)
+                last_error = None
+                break
+            except ValueError as error:
+                last_error = error
+                event["diagnoser_parse_error"] = str(error)
+        if last_error is not None:
+            raise ValueError(f"Diagnoser 未返回合法 JSON：{last_error}") from last_error
+
         brief = self._validate(payload, plan_files, packet, packet_ref)
 
         brief_ref = self.runtime.write_json_artifact(

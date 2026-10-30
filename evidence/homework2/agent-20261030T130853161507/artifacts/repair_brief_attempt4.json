@@ -1,0 +1,48 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 4,
+  "stage": "simulation",
+  "created_at": "2026-10-30T13:23:27+00:00",
+  "hypothesis": "The simulation timeout and the repeated 'retire PC/instruction does not match the loaded program' checks indicate that the processor is executing and retiring instructions from a wrong path. The most plausible root cause is that the misprediction recovery logic in the EX stage does not actually flush the two younger pipeline stages (IF/ID and ID/EX) correctly. When a branch/jump is resolved and the actual next PC differs from the predicted next PC, the control transfer redirects the PC, but the valid bits of the instructions already fetched along the wrong path are not cleared. These stale wrong-path instructions continue flowing through MEM/WB and are retired, generating incorrect dbg_retire_pc/dbg_retire_insn events. The wrong-path stream may also contain ECALL-like patterns or loops that prevent the correct program from terminating, causing the 20 s simulation timeout. The dynamic branch predictor itself may produce a wrong prediction, but the failure is caused by the missing/incomplete flush of younger instructions after misprediction, not by the predictor tables alone.",
+  "confidence": "medium",
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/if_stage.sv",
+    "rtl/hazard_unit.sv"
+  ],
+  "symbols": [
+    "mispredict_flush",
+    "flush_ifid",
+    "flush_idex",
+    "branch_taken",
+    "actual_next_pc",
+    "pred_pc",
+    "ex_mem_valid_clear"
+  ],
+  "constraints": [
+    "Do not change the top-level port names or the frozen stage-to-stage interface names/widths.",
+    "Reset semantics: synchronous active-low rst_n; all registered outputs must be 0 during reset and before the first reset edge.",
+    "PC update priority must remain: reset > control-transfer redirect > ECALL halt freeze > load-use stall > PC+4.",
+    "Load-use stall must not clear any valid instruction; only insertion of one bubble in EX is allowed.",
+    "Misprediction must flush exactly the two younger pipeline stages (IF/ID and ID/EX); it must not flush older instructions or the resolved instruction itself.",
+    "The flush must be edge-aligned with the pipeline register update and must not depend on data values; valid bits are cleared only.",
+    "Do not modify branch_predictor.sv logic unless necessary; the predictor tables should remain untouched.",
+    "The EX stage must compare the actual next PC with the predicted next PC carried from IF; a mismatch must assert flush for younger stages in the same cycle.",
+    "Do not break the store/ECALL cancellation on wrong path: any instruction younger than the mispredicted branch must never reach WB or set dbg_retire_valid."
+  ],
+  "verification_targets": [
+    "In t13_dft, after the first few cycles of misprediction, dbg_retire_pc/dbg_retire_insn must exactly follow the loaded program order; no 'retire PC/instruction does not match' error should occur.",
+    "The simulation must complete under 20 s, with ECALL retired and halted=1 raised in the cycle after the ECALL retirement pulse.",
+    "For the main L2 training case, the number of retired instructions must be 132 and the number of mispredictions must be <=8.",
+    "After any taken branch/jump that is mispredicted, the two younger stages must become invalid on the next clock edge, and no instruction from the wrong path may generate dbg_retire_valid.",
+    "Steady CPI for straight-line ALU code must remain 1 (excluding required L2 cache effects)."
+  ],
+  "rejected_hypotheses": [
+    "Compile failures caused by duplicate port declarations in ex_stage.sv.",
+    "Compile failures caused by packed struct with unpacked arrays in branch_predictor.sv.",
+    "Compile failures caused by non-constant array indexing or unsupported array access patterns in dcache.sv and branch_predictor.sv."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt4.json",
+  "report_ref": "tester-04/test_report.json"
+}

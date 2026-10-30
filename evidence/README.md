@@ -49,3 +49,19 @@
 
 `baseline-*` 目录来自原始课程代码的 git worktree（同一模型、同一参数、同一教师 TB），
 因此没有 `run_summary.json`，token 统计在 `events.json` 里；它的 artifact 是旧版 Modifier 生成的，不带上述追溯字段。
+
+## 作业二：L2（最终采用）与 L3 尝试
+
+| 目录 | 说明 |
+|---|---|
+| `agent-20261030T144416280474` | **L2 最终采用**：以课程 L1 参考实现为起点 + BTB/BHT 规格提示，2 次 Tester 通过；base / cache / predictor / performance_correctness 全过，ooo 组按 L2 跳过，dbg_features 验证为 L2 |
+| `agent-20261030T130853161507` | L2 从零生成（v4-pro）：编译通过但仿真不停机，9 轮修复后仍超时（467,343 tokens） |
+| `agent-20261030T140451260360` | L2 以 L1 参考起步但未给预测器规格：base/cache 通过、predictor 未实现，11 轮失败（414,344 tokens） |
+| `agent-20261030T142923838903` | L2 中途因 Diagnoser 返回非法 JSON 崩溃（暴露解析重试缺口，已修复） |
+| `agent-20261030T122723075728` | L3：Planner 输出被截断 |
+| `agent-20261030T123356416189` | L3（flash）：iverilog 语法限制，编译不过 |
+| `agent-20261030T124311252478` | L3（v4-pro）：6 轮后仍编译失败（break / 数组切片 / 端口不一致） |
+
+**方法披露**：L2 不是从零生成。课程在 `content/agent/skills/rv32i5_l1_reference` 提供了经过教师 TB 验证的
+L1 参考实现（11 个 `.sv`），本项目把 Coder 的参考实现 fallback 扩展到 L2 作为起点，Agent 负责补
+`branch_predictor.sv`、改 IF 的预测接入、接通顶层与 dbg 计数。报告与日志都如实记录，没有手改生成的 RTL。

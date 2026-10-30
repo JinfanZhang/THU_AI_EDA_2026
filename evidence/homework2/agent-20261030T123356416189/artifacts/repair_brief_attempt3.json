@@ -1,0 +1,49 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T123356416189",
+  "attempt": 3,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:41:45+00:00",
+  "hypothesis": "The Compile stage still dies after attempts 1 and 2 because they treated the symptom (net declarations) instead of the source. Every one of the repeated 'sorry: constant selects in always_* processes are not currently supported (all bits will be included)' notes is emitted when a module assigns only a constant bit/part-select on the LHS of an always_comb/always_ff/always_latch (e.g. an indexed cache valid/tag array word, a BHT 2-bit counter slice, a byte-enable field, or a packed control vector). Icarus Verilog cannot narrow such a select, so it widens the assignment to the WHOLE vector. When the same vector is also assigned/reset from another always block or read elsewhere, the widened driver collides and elaboration reports the leftover '5 error(s) during elaboration' (unable-to-bind / multiple-driver / port-expression class). The 'sorry' lines and the 5 errors are therefore one defect, not two: the always_* constant-select pattern itself. The durable fix is at the assignment sites — write full vectors (compute the value into a temporary/local and assign the entire signal, or use indexed memory writes only inside plain always @(posedge clk) with whole-word targets) rather than patching net declarations in the top.",
+  "confidence": "medium",
+  "files": [
+    "rtl/dcache.sv",
+    "rtl/branch_predictor.sv",
+    "rtl/icache.sv"
+  ],
+  "symbols": [
+    "always_comb",
+    "always_ff",
+    "always_latch",
+    "btb_valid",
+    "btb_tag",
+    "btb_target",
+    "bht_counters",
+    "valid_array",
+    "tag_array",
+    "data_array",
+    "cpu_req_be",
+    "flush_epoch"
+  ],
+  "constraints": [
+    "Do not change any port name/width/direction of rv32i5, icache, dcache, branch_predictor, fetch_unit or alu as frozen in the interface contract.",
+    "Keep synchronous active-low reset; every registered output (including dmem_valid, cache idle/valid, BTB/BHT valid) must be 0 during reset and before the first reset edge.",
+    "Keep the single-cycle memory model: imem/dmem respond same cycle; do not register responses or add wait states.",
+    "Do not touch the teacher TB, spec, or scoring scripts; no hardcoded vectors, no faked debug/feature flags (dbg_features stays 3'b111).",
+    "Preserve module boundaries and file names; do not merge modules back into the top.",
+    "Squash/redirect and cache flush semantics (flush/flush_epoch) must remain valid-with-data-same-cycle; ready backpressure must not drop requests.",
+    "Whenever a signal is written under an always_* block, assign the full vector (no constant bit/part select on the LHS); each net must remain single-driver."
+  ],
+  "verification_targets": [
+    "Compile stage elaboration completes: 0 error(s) reported (the '5 error(s) during elaboration' summary disappears).",
+    "No 'sorry: constant selects in always_* processes' notes remain for rtl/dcache.sv, rtl/branch_predictor.sv, rtl/icache.sv (and the rv32i5 top).",
+    "iverilog successfully elaborates top module rv32i5 with all submodules (icache, dcache, branch_predictor, fetch_unit, alu) resolved and every port bound.",
+    "After compile passes, functional checks: halted asserted only on committed ECALL, exit_code==x10, retire count reaches 132 in the hot-loop test with <=8 mispredictions."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1: top/reorder_buffer port-name mismatch plus dc_idle/squash_valid double-driver in rtl/rv32i5.sv — rejected because it was applied and the same Compile-stage failure persists; those nets are not the origin.",
+    "Attempt 2: unresolved-net/multiple-driver created by constant selects recorded only as a net-declaration/single-driver cleanup in dcache/branch_predictor/top — rejected as insufficient; fixing net declarations does not remove the always_* c"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt3.json",
+  "report_ref": "tester-03/test_report.json"
+}

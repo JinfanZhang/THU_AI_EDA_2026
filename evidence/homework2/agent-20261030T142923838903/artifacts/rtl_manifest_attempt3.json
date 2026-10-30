@@ -1,0 +1,80 @@
+{
+  "schema_version": "rtl_manifest/2",
+  "run_id": "agent-20261030T142923838903",
+  "attempt": 3,
+  "created_at": "2026-10-30T14:35:39+00:00",
+  "files": [
+    {
+      "path": "rtl/alu.sv",
+      "artifact": "project/rtl/alu.sv",
+      "bytes": 1261,
+      "sha256": "19e256ac0b6fff77318d8338b14f9409c986a96e5a06952671f315a30d756067"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "artifact": "project/rtl/branch_predictor.sv",
+      "bytes": 5323,
+      "sha256": "2933f851faf7c3739a98489d309320f3ae0de1a1f980f502e009d38cf2d3552c"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "artifact": "project/rtl/dcache.sv",
+      "bytes": 9743,
+      "sha256": "48089c2d3f9850e96a28c9d5140d0e3b880c907abe5a53026c58d6d55269b72c"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "artifact": "project/rtl/ex_stage.sv",
+      "bytes": 6706,
+      "sha256": "14f2899bd63e38789566fbeb484c753fda3544eba4a6597758e8ddd1a656e636"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "artifact": "project/rtl/forwarding_unit.sv",
+      "bytes": 1502,
+      "sha256": "9fe07f2535cec6b180255df25e1b12277aa0454ec88f664163dcedb2c660dadf"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "artifact": "project/rtl/hazard_unit.sv",
+      "bytes": 1588,
+      "sha256": "86d5381257123d1e691aed5795084d5b6ae5acb446573317a4d65fcc48915541"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "artifact": "project/rtl/icache.sv",
+      "bytes": 5922,
+      "sha256": "c731d2f21d901ed17d7158f2865d66901106aedd51f167290223a9354d574a41"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "artifact": "project/rtl/id_stage.sv",
+      "bytes": 11083,
+      "sha256": "81fbb620147bb378195d77c93acad4c0be456691bbdaeefc707ed2716efda1bb"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "artifact": "project/rtl/if_stage.sv",
+      "bytes": 3138,
+      "sha256": "8a04b6fb569802a1a579bd1f8cf9a29117ab05324582dd5099ad162dd2f50e81"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "artifact": "project/rtl/mem_stage.sv",
+      "bytes": 10690,
+      "sha256": "f162befa8c3317dd5c070cf19bcdf1bbf04550b79bb67f163bb9c2fc535637c4"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "artifact": "project/rtl/rv32i5.sv",
+      "bytes": 19747,
+      "sha256": "c1080b23a5b2837fe5bab99da650fb3cf4fc2059a140bf09e37d63057fa70303"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "artifact": "project/rtl/wb_stage.sv",
+      "bytes": 1460,
+      "sha256": "4de473ce471fe3518649c4e8a790fd9ccf90aad8a0a84c96674df058c43ea6f2"
+    }
+  ]
+}

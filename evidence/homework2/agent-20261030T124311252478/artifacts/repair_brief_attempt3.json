@@ -1,0 +1,38 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T124311252478",
+  "attempt": 3,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:55:24+00:00",
+  "hypothesis": "The failing generated RTL contains whole-array or array-slice assignments in aggregate storage blocks such as cache line/tag arrays, BTB/BHT tables, or packed-entry arrays. Icarus Verilog 12 with -g2012 rejects these constructs with 'Assignment to an entire array or to an array slice is not yet supported'; the adjacent errors and the later elab_expr.cc packed_dimensions assertion are consistent with procedural part-select/array-slice writes, for example `line[8*i +: 8] <= byte_data;` or assigning an entire cache/tag/BTB line as one array slice. The fix must replace these aggregate writes with explicit element-by-element assignments or hand-unrolled shift-and-mask temporaries.",
+  "confidence": "medium",
+  "files": [
+    "rtl/dcache.sv",
+    "rtl/icache.sv",
+    "rtl/branch_predictor.sv"
+  ],
+  "symbols": [
+    "cache tag/data arrays",
+    "BTB tag/target arrays",
+    "BHT counter array",
+    "cache-line refill shift-mask temporaries"
+  ],
+  "constraints": [
+    "Do not rename or change any frozen top-level or module ports; preserve all valid/ready/epoch handshakes.",
+    "Keep cache refill word installation order exactly base, base+4, base+8, base+12; do not add wait states or register memory responses.",
+    "Do not use whole-array or array-slice assignments; implement only per-element or shifted scalar assignments.",
+    "Maintain synchronous active-low reset semantics: all registered outputs and table valid bits must be 0 during reset and before the first reset edge.",
+    "Do not change the teacher TB, spec, or scoring scripts; do not add test-vector hardcoding or debug/feature flags."
+  ],
+  "verification_targets": [
+    "Icarus Verilog 12 -g2012 compilation completes with no 'Assignment to an entire array or to an array slice is not yet supported' errors.",
+    "No elab_expr.cc packed_dimensions assertion or abort occurs during elaboration.",
+    "The teacher TB simulation starts and prior RV32I/L3 cache/predictor functional checks do not regress."
+  ],
+  "rejected_hypotheses": [
+    "break statements in issue_queue/reorder_buffer/load_store_unit from attempt 1",
+    "remaining break statements in rename_unit/branch_predictor/icache from attempt 2"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt3.json",
+  "report_ref": "tester-03/test_report.json"
+}

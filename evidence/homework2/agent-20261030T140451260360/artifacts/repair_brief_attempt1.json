@@ -1,0 +1,44 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 1,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:09:34+00:00",
+  "hypothesis": "All 241386 functional/scoring checks pass (performance_correctness suite green, 0 failures, correct exit_code=0x820, dmem_reads=64) — only the single capability check fails, reporting level=1 features=1 while the task expects L2. The L2 subsystem files (icache.sv, dcache.sv, branch_predictor.sv) exist in the file inventory and the if_stage/mem_stage carry bus-handshake ports (cpu_req_*/cpu_resp_*, bp_lookup_pc/bp_pred_*), yet the performance log shows ooo_bypass=0 and the top-level reports only L1 features. This means rtl/rv32i5.sv drives dbg_features (and likely the dbg_bp_*/dbg_ooo_* capability observables) with a value/constant that encodes only the base 5-stage pipeline (features=1), i.e. the L2 cache + dynamic-branch-prediction + OoO-bypass feature bits are never asserted — so the teacher TB's capability probe classifies the design as L1 even though the underlying logic can already execute the L2 benchmark correctly. Root cause: incorrect/under-asserted capability declaration in the top-level feature/observability wiring, not a datapath bug.",
+  "confidence": "medium",
+  "files": [
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "dbg_features",
+    "dbg_bp_resolve",
+    "dbg_bp_mispredict",
+    "dbg_ooo_issue",
+    "dbg_ooo_bypass",
+    "bp_lookup_pc",
+    "bp_pred_taken",
+    "bp_pred_target"
+  ],
+  "constraints": [
+    "Keep the rv32i5 top-level port list, widths and names exactly as frozen in the spec §A interface (do not add/remove/rename ports).",
+    "Do not modify the teacher TB, the spec, or scoring scripts.",
+    "Preserve reset semantics: synchronous active-low rst_n, dmem_valid=0 during reset and before first reset edge, halted=0/exit_code=0 on reset edge.",
+    "Preserve imem/dmem handshake timing and single-cycle memory model; do not add wait states.",
+    "Preserve halted/exit_code timing (halted set one cycle after ECALL commit at WB, exit_code equals final x10).",
+    "Capability feature bits must reflect features that are actually instantiated and exercised (caches + branch predictor must be genuinely wired, not faked).",
+    "Do not hardcode test vectors or fake debug/feature flags; dbg_bp_resolve/dbg_bp_mispredict/dbg_ooo_issue/dbg_ooo_bypass must be driven by real pipeline events."
+  ],
+  "verification_targets": [
+    "capability check flips to pass: AI_EDA_CAPABILITY expected=2 and declared=2 (level=2), features indicating the L2 cache + branch-prediction features.",
+    "All previously passing functional checks remain green: performance_correctness suite passed=1, 0 failures, benchmark exit_code=0x00000820.",
+    "dbg_features reports the L2 feature encoding (cache + BP + OoO bits asserted) consistent with the instantiated icache/dcache/branch_predictor.",
+    "dbg_bp_resolve / dbg_bp_mispredict toggle on real taken/mispredicted control transfers; dbg_ooo_issue / dbg_ooo_bypass reflect real forwarding/bypass events (no longer stuck 0 while L2 features are declared)."
+  ],
+  "rejected_hypotheses": [
+    "Datapath/ALU/load-store/hazard correctness bug — rejected because all 241386 functional checks including performance_correctness passed with correct exit_code and register values.",
+    "Halt/exit_code timing bug — rejected because check_exit and check_reg show halted=1, exit_code=0x820, x10=0x820 matching expected.",
+    "Missing L2 source files — rejected because icache.sv, dcache.sv, branch_predictor.sv already appear in the file inventory; the gap is that their features are not declared/exercised at the top level."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt1.json",
+  "report_ref": "tester-01/test_report.json"
+}

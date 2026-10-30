@@ -1,0 +1,50 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 10,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:24:03+00:00",
+  "hypothesis": "The ECALL commit/halt path is broken: ID decodes ECALL, but the is_ecall flag is not carried through every pipeline register into WB (or WB gates halted/exit_code on the wrong valid/bit), so a committed ECALL never sets halted. Execution therefore runs past the end of the loaded program image; the front-end keeps fetching default/out-of-image words and WB keeps retiring them, so the TB emits the endless tail of 't13_dft — retire PC/instruction does not match the loaded program' lines and never observes halted, burning the full 20 s budget. The mismatch stream starting after the last valid program word (rather than from the first fetch) distinguishes this from the previously applied fetch-handshake, request-hold and PC-capture hypotheses.",
+  "confidence": "medium",
+  "files": [
+    "rtl/id_stage.sv",
+    "rtl/mem_stage.sv",
+    "rtl/wb_stage.sv"
+  ],
+  "symbols": [
+    "is_ecall",
+    "id_ex_is_ecall",
+    "ex_mem_is_ecall",
+    "mem_wb_is_ecall",
+    "mem_wb_valid",
+    "halted",
+    "exit_code",
+    "dbg_retire_valid",
+    "dbg_retire_pc",
+    "dbg_retire_insn"
+  ],
+  "constraints": [
+    "Keep the frozen top-level rv32i5 port list and module boundaries unchanged.",
+    "ECALL is recognized only by the exact instruction word 32'h0000_0073; do not halt on any other opcode or on a bubble.",
+    "Only WB may set halted/exit_code, and only for a committed ECALL; halted must be sticky and freeze PC fetch, imem_valid and further retire pulses once set.",
+    "Do not alter branch/JAL/JALR resolution, forwarding priority, load-use stall timing or reset semantics while fixing the ECALL flag path.",
+    "Synchronous active-low reset; halted/exit_code/dbg_retire_valid must be 0 during reset and before the first reset edge.",
+    "Single-cycle imem/dmem model: no extra wait states or registered responses may be introduced."
+  ],
+  "verification_targets": [
+    "After the committed ECALL retires, halted becomes 1 within one clock and exit_code reflects the architectural value; simulation ends well under the 20 s cap.",
+    "No dbg_retire_valid pulse occurs after halted is asserted, and no retire PC/instruction pair is reported beyond the loaded program image.",
+    "For every retirement up to the ECALL, dbg_retire_pc/dbg_retire_insn match the loaded program word at that PC, so t13_dft no longer logs 'retire PC/instruction does not match the loaded program'.",
+    "The ECALL instruction itself retires with the correct PC and instruction word, and its is_ecall bit remains 1 through ID/EX, EX/MEM and MEM/WB."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 4 (branch_predictor outputs not consumed by IF and missing dmem-wait overlap) was applied but the timeout persists.",
+    "Attempt 5 (imem-ready gating deadlock pinning imem_addr=0x0c) was applied but the timeout persists.",
+    "Attempt 6 (missing registered dmem request/hold causing D-memory request changed before ready) was applied but the timeout persists.",
+    "Attempt 7 (missing held fetch-request state / imem request changed before ready) was applied but the timeout persists.",
+    "Attempt 8 (extra fetch register lagging imem_rdata by one cycle) was applied but the timeout persists.",
+    "Attempt 9 (PC carried alongside an instruction off by one, using pc+4) was applied but the same retire-mismatch/timeout failure persists, so the PC bookkeeping is no longer the primary mechanism."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt10.json",
+  "report_ref": "tester-10/test_report.json"
+}

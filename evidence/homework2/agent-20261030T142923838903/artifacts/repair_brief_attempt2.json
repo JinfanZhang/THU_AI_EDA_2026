@@ -1,0 +1,52 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T142923838903",
+  "attempt": 2,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:34:27+00:00",
+  "hypothesis": "The L2 capability gate is now fixed (declared=2), exposing a real missing connection: the branch predictor's resolve/update path is not wired. Symptom is bench_branch_predict64 seeing 0 resolutions (expected >=128) and predictor_training finding no branch-resolution evidence, plus branches=0/mispredicts=0 in the perf line. The mechanism: the EX resolve of a conditional branch / JAL / JALR does not drive dbg_bp_resolve/dbg_bp_mispredict (they appear tied low) and does not assert branch_predictor.update_valid with update_pc/update_target/update_is_branch/update_is_jal/update_is_jalr/update_taken. Consequently the predictor never trains (BTB stays all-invalid, BHT stuck at 01), every prediction falls back to PC+4, and the two debug observation ports never pulse, so all resolution-count checks read 0.",
+  "confidence": "high",
+  "files": [
+    "rtl/rv32i5.sv",
+    "rtl/ex_stage.sv",
+    "rtl/branch_predictor.sv"
+  ],
+  "symbols": [
+    "dbg_bp_resolve",
+    "dbg_bp_mispredict",
+    "update_valid",
+    "update_pc",
+    "update_target",
+    "update_is_branch",
+    "update_is_jal",
+    "update_is_jalr",
+    "update_taken",
+    "resolve_valid",
+    "resolve_taken",
+    "resolve_target"
+  ],
+  "constraints": [
+    "Keep the frozen top-level port list of rv32i5 unchanged (names, widths, directions).",
+    "dbg_features must remain the constant 3'b011, valid from time 0, never dynamically driven or faked.",
+    "Only control transfers that actually reach resolve and are not killed by an older mispredict may pulse dbg_bp_resolve/dbg_bp_mispredict; don't count squashed younger control transfers.",
+    "BTB/BHT same-cycle priority: produce this cycle prediction from the OLD entry first, then apply this cycle resolve update; a write must not alter the already-issued prediction.",
+    "BTB allocation: conditional branch only on BTB-miss-and-taken; not-taken never allocates; JAL/JALR allocate/update on first resolve or target change; JAL/JALR must not update BHT.",
+    "BHT is 16x2-bit saturating, index PC[5:2], reset 01, update every resolved conditional branch by actual direction.",
+    "Squashed younger control transfers must not write BTB/BHT; correctly predicted taken branches must NOT trigger an extra flush and still update BHT.",
+    "Preserve L1 base pipeline: PC priority reset > redirect > ECALL halt freeze > load-use stall > PC+4; load-use holds one cycle with bubble; keep I/D cache behavior intact.",
+    "Synchronous active-low reset; every registered output (including dmem_valid) 0 during reset."
+  ],
+  "verification_targets": [
+    "bench_branch_predict64: predictor resolutions now >= 128 (previously 0).",
+    "predictor_training: branch-resolution evidence present; after warm-up >= 64 resolved control transfers, mispredicts <= 8, retired instructions == 132.",
+    "dbg_bp_resolve pulses on every committed control transfer that reaches resolve; dbg_bp_mispredict pulses exactly on direction or target mismatch.",
+    "capability level stays declared=2/expected=2 (features=3'b011) with regression suite still passing.",
+    "Correctly predicted taken branches do not cause a spurious second flush (perf line should show nonzero, bounded mispredicts, not zero)."
+  ],
+  "rejected_hypotheses": [
+    "Previous hypothesis that dbg_features was hardwired to L1 3'b001 was applied and is now resolved (capability reads declared=2), so it is not the current root cause.",
+    "A pure caches/timing regression is rejected: the ooo_overlap64 run halts correctly with exit_code=0x820 and all its checks pass; the failure is isolated to the branch-predictor resolve/counting path."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt2.json",
+  "report_ref": "tester-02/test_report.json"
+}

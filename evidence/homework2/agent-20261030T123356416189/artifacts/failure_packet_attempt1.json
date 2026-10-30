@@ -1,0 +1,111 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T123356416189",
+  "attempt": 1,
+  "project_id": "rv32i5_ooo",
+  "created_at": "2026-10-30T12:39:41+00:00",
+  "stage": "compile",
+  "stage_label": "Compile",
+  "passed": false,
+  "summary": "Teacher TB failed (Compile).",
+  "failed_checks": [],
+  "failed_check_count": 0,
+  "first_deviation": null,
+  "failing_suites": [],
+  "log_excerpt": "1030T123356416189/artifacts/generated_attempt1.sv:815: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:815: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:815: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:490: error: Unresolved net/uwire dc_idle cannot have multiple drivers.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:490: error: Output port expression must support continuous assignment.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:490:      : Port 21 (idle) of dcache is connected to dc_idle\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:496: error: port ``retire_valid'' is not a port of u_rob.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:496: error: port ``retire_pc'' is not a port of u_rob.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:496: error: port ``retire_insn'' is not a port of u_rob.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:496: error: port ``bp_resolve'' is not a port of u_rob.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:496: error: port ``bp_mispredict'' is not a port of u_rob.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:536: error: Unresolved net/uwire squash_valid cannot have multiple drivers.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:536: error: Output port expression must support continuous assignment.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T123356416189/artifacts/generated_attempt1.sv:536:      : Port 37 (squash_valid) of reorder_buffer is connected to squash_valid\n14 error(s) during elaboration.",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/fetch_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/alu.sv",
+      "bytes": 2648,
+      "sha256": "12eba637b34a260a"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "bytes": 3154,
+      "sha256": "1038fdcb8b634b08"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "bytes": 6535,
+      "sha256": "7056e77685bf788e"
+    },
+    {
+      "path": "rtl/fetch_unit.sv",
+      "bytes": 3595,
+      "sha256": "0614a2a0cb8aa4f3"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "bytes": 4499,
+      "sha256": "9befe9b92a1e725f"
+    },
+    {
+      "path": "rtl/issue_queue.sv",
+      "bytes": 5767,
+      "sha256": "fa8c259df609a390"
+    },
+    {
+      "path": "rtl/load_store_unit.sv",
+      "bytes": 11215,
+      "sha256": "e30d32a8e766557d"
+    },
+    {
+      "path": "rtl/prf.sv",
+      "bytes": 1122,
+      "sha256": "160120ce637e8b42"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "bytes": 15650,
+      "sha256": "27ea9cad16eeb3a8"
+    },
+    {
+      "path": "rtl/reorder_buffer.sv",
+      "bytes": 12729,
+      "sha256": "9052267ca8f9af10"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 21553,
+      "sha256": "cb75bd864e7fc344"
+    }
+  ],
+  "references": {
+    "report": "tester-01/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest.json"
+  }
+}

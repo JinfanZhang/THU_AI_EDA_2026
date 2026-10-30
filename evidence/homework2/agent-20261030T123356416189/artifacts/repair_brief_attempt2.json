@@ -1,0 +1,45 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T123356416189",
+  "attempt": 2,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:40:38+00:00",
+  "hypothesis": "The 5 elaboration errors are NOT the top/reorder_buffer port mismatch that attempt 1 fixed (that was already corrected and the same category of failure persists). The surviving blocker is a multiple-driver / net-elaboration problem created by the `sorry: constant selects in always_* processes` pattern: several modules assign a constant bit- or part-select on the LHS of an `always_comb`/`always_ff` (e.g. a `valid`/`ready`/epoch field or an array word written as `reg[i] <= ...` with a literal index), while the same vector is also assigned elsewhere (a separate reset `always_ff`, a second `always_comb`, or a continuous assign). Icarus collapses the constant select to 'all bits included', which makes the whole vector appear driven from two processes; that surfaces as unresolved-net/multiple-driver and 'output port expression must support continuous assignment' elaboration failures. The offending sites are around generated_attempt2.sv:284 (a cache/predictor state/output vector) and :954 (a top-level/control vector), i.e. dcache.sv, branch_predictor.sv, and the residual double-driven nets in rv32i5.sv (dc_idle / squash_valid / busy-valid style nets that attempt 1 declared but did not fully single-drive).",
+  "confidence": "medium",
+  "files": [
+    "rtl/dcache.sv",
+    "rtl/branch_predictor.sv",
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "dc_idle",
+    "squash_valid",
+    "cpu_req_ready",
+    "cpu_resp_valid",
+    "predict_npc",
+    "predict_hit",
+    "predict_taken",
+    "mem_req_valid",
+    "idle"
+  ],
+  "constraints": [
+    "Keep all module port names, directions and widths exactly as in the frozen interface contract (rv32i5, icache, dcache, branch_predictor, fetch_unit, alu).",
+    "Do not change the teacher TB, spec, or scoring scripts; do not alter the top-level port list of rv32i5.",
+    "Each output net must have exactly ONE driver: either a single always_ff/always_comb or a continuous assign, never both; declare it as `logic` and remove any conflicting procedural assignment.",
+    "Do not replace constant bit-select LHS with hardcoded test vectors or fake feature flags; consolidate into a single full-vector assignment driven from one process.",
+    "Preserve reset semantics: synchronous active-low reset drives every registered output (including dmem_valid, cache valid/busy, predictor table) to 0 during rst_n=0.",
+    "Preserve cache blocking-miss protocol and predictor update/predict handshake timing; no extra wait states on the single-cycle imem/dmem model."
+  ],
+  "verification_targets": [
+    "Elaboration/Compile stage completes with 0 errors (down from '5 error(s) during elaboration') and no unresolved-net/multiple-driver messages.",
+    "No 'Output port expression must support continuous assignment' errors remain for dc_idle or squash_valid.",
+    "The 'constant selects in always_* processes' notes are eliminated because each affected vector is now driven from a single process (or can remain as benign notes but must not collapse into multi-driver errors).",
+    "Post-fix sanity: rv32i5, dcache, branch_predictor elaborate together with unchanged port lists; first functional checks can run."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1 hypothesis: rv32i5↔reorder_buffer port-name mismatch plus dc_idle/squash_valid double-drive in the top. It was applied and compilation still fails with 5 elaboration errors, so the residual blocker is elsewhere (cache/predictor co",
+    "Purely benign tool notes: the constant-select 'sorry' lines alone are not the blocker, but the double-drive nets they expose are the elaboration blocker."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt2.json",
+  "report_ref": "tester-02/test_report.json"
+}

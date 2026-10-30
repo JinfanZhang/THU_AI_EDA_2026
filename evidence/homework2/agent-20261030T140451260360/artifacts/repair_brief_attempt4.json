@@ -1,0 +1,54 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 4,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:15:33+00:00",
+  "hypothesis": "The remaining failures cluster on two coupled fetch/memory-control defects that were not addressed by the earlier capability-bit, port-binding, or BP-update-plumbing patches. First, if_stage computes its next PC from PC+4 unconditionally instead of consuming the branch_predictor outputs (bp_pred_taken/bp_pred_target/bp_btb_hit): the predictor may now be trained/updated (attempt 3), but because IF never redirects fetch to the predicted target and never carries the true predicted next PC into id_ex_pred_next_pc, the resolved next PC always mismatches the carried PC+4, so every taken branch resolves as a mispredict (predictor_training shows 64 mispredicts = 64 branches). Second, the external-memory wait path does not hold request signals stable nor exploit the wait: when a load is stalled waiting for slow external dmem (dmem_ready low), the pipeline fully stalls rather than letting an independent younger ALU instruction issue/execute, so no genuine OoO overlap occurs during the load-wait window (the observed ooo_bypass=449 pulses come from ordinary EX/MEM forwarding, not load-wait overlap), and the front-end keeps advancing/reissuing imem_addr while an imem request is still outstanding (imem_valid=1, imem_ready=0), producing the 'I-memory request changed before ready' protocol violation. Root mechanism: fetch-control (prediction consumption + imem-ready gating) and dmem-wait overlap control are implemented incorrectly in if_stage/top, so the predictor is useless, imem handshake ",
+  "confidence": "medium",
+  "files": [
+    "rtl/if_stage.sv",
+    "rtl/rv32i5.sv",
+    "rtl/mem_stage.sv"
+  ],
+  "symbols": [
+    "bp_pred_taken",
+    "bp_pred_target",
+    "bp_btb_hit",
+    "imem_addr",
+    "imem_valid",
+    "imem_ready",
+    "id_ex_pred_next_pc",
+    "pred_next_pc",
+    "fetch_pc",
+    "dmem_valid",
+    "dmem_ready",
+    "dbg_ooo_issue"
+  ],
+  "constraints": [
+    "Top-level port names and widths in module rv32i5 must remain exactly as frozen in §A; do not rename or redeclare ports.",
+    "imem_addr must be 0 and imem_addr[1:0]==00 during reset and before first fetch; imem_addr[1:0]==00 every running cycle.",
+    "Once a request is issued (imem_valid=1 / dmem_valid=1), hold its addr/we/be/wdata stable until the corresponding ready is observed; never change imem_addr while imem_valid=1 and imem_ready=0.",
+    "IF must actually redirect fetch using bp_pred_taken/bp_pred_target and carry the resulting predicted next PC into id_ex_pred_next_pc; do not fall back to PC+4 as the prediction.",
+    "Branch predictor updates still come from the single authoritative committed-resolution event (branch_predictor.bp_update_*), with squashed younger control transfers excluded; preserve that wiring.",
+    "dbg_ooo_issue/dbg_ooo_bypass must be driven only by genuine younger-instruction issue/bypass that occurs concurrently with an older load waiting on external memory (dmem_ready low), not from ordinary EX/MEM forwarding, and never hardcoded.",
+    "Reset is synchronous active-low; dmem_valid must be 0 during reset; only WB may set halted/exit_code, and only for a committed ECALL.",
+    "JALR target = (rs1 + imm) & 32'hffff_fffe; branches/JAL/JALR resolved in EX flushing two younger entries on taken/mispredict.",
+    "dbg_features must remain a constant independent of rst_n; no test-name or address-based event gating.",
+    "Keep Icarus-safe coding: no variable part-selects, break/continue, array-slice assignment, or constant-index array writes in always blocks."
+  ],
+  "verification_targets": [
+    "predictor_training: trained taken loop mispredicts drops from 64 to <=8 (target 0 after warmup), retire count holds at 132.",
+    "ooo_load_overlap_rename: dbg_ooo_issue asserts (>=1) for an independent younger ALU instruction while an older load waits with dmem_ready low.",
+    "bench_ooo_overlap64 bypass check: dbg_ooo_bypass pulses specifically during the load external-wait window (correlated with dmem_ready low), not merely ordinary forwarding; bypass event now credited.",
+    "bench_ooo_overlap64 I-memory check: no 'I-memory request changed before ready' — imem_addr / imem_valid hold stable across each outstanding imem request until imem_ready.",
+    "Regression unchanged: exit_code=0x820, x10=0x00000820, dmem_reads=64, halted=1, and all previously passing functional/scoring checks stay green."
+  ],
+  "rejected_hypotheses": [
+    "attempt 1: under-asserted dbg_features/capability bits causing L1 classification — applied, but task now runs and reaches L2-level checks, so not the current failure.",
+    "attempt 2: stale branch_predictor instantiation port names causing elaboration abort — elaborated and simulated successfully, so not the blocker.",
+    "attempt 3: missing/incorrect BP update strobe (bp_update_valid never strobed) leaving BHT untrained — applied, predictor update plumbing is now presumed present; the remaining 64/64 mispredicts indicate the prediction is not consumed in IF "
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt4.json",
+  "report_ref": "tester-04/test_report.json"
+}

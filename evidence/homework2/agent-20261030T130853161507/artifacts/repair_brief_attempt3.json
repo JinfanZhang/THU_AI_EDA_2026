@@ -1,0 +1,37 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 3,
+  "stage": "compile",
+  "created_at": "2026-10-30T13:20:25+00:00",
+  "hypothesis": "The compile still fails because two data-path modules use Icarus Verilog 12-unsupported array/indexing constructs. rtl/dcache.sv models the cache data array as an unpacked memory and reads it with a variable index plus indexed part-select (`data_array[index][{wsel,5'd0}+:'sd32]`) inside an always_comb block; Icarus reports `index` is not a constant, array index must be constant, and cannot elaborate the r-value. rtl/branch_predictor.sv's 16-entry BTB/BHT tables are still accessed with constant element selects inside always_* processes, producing the repeated `constant selects in always_* processes are not currently supported` warnings. The prior duplicate-port and packed-struct fixes did not address these array access patterns.",
+  "confidence": "high",
+  "files": [
+    "rtl/dcache.sv",
+    "rtl/branch_predictor.sv"
+  ],
+  "symbols": [
+    "data_array",
+    "index",
+    "wsel",
+    "btb",
+    "bht"
+  ],
+  "constraints": [
+    "Do not change any module port names or the rv32i5 top-level port map; preserve cpu_req_*/cpu_resp_*/mem_req_*/mem_resp_* and pc_query/pred_pc/update_* timing.",
+    "Preserve dcache write-through single-cycle store/load semantics and byte-enable behavior; do not add wait states or pipeline registers in the cache response path.",
+    "Preserve branch-predictor lookup/write ordering: use old table content for the same-cycle prediction, then update; do not alter BTB/BHT indexing/tag/update rules or reset values such as weak-not-taken 01.",
+    "Use only Icarus-12-supported constructs: plain logic packed vectors, always_ff with explicit reset, hand-unrolled generate blocks or shift/mask temporaries. Avoid variable part-selects and constant array-index selects in always_comb/always_"
+  ],
+  "verification_targets": [
+    "Teacher TB compile check must flip from fail to pass with no `Array index expressions must be constant here`, no `Unable to elaborate r-value: data_array[index]`, and no `constant selects in always_* processes are not currently supported` w",
+    "Icarus Verilog 12 -g2012 compilation must complete without core dump or assertion failure at elab_lval.cc:933.",
+    "After the compile fix, dmem/imem external transaction behavior must remain unchanged under the existing teacher TB."
+  ],
+  "rejected_hypotheses": [
+    "ex_stage duplicate port/redeclaration (attempt 1) was already applied, but the same compile stage still failed, so it is rejected as the cause of the current errors.",
+    "branch_predictor packed struct combined with unpacked array (attempt 2) was already applied, but the current errors point to unsupported array-index/part-select patterns in dcache and branch_predictor, not merely to a packed-struct declarat"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt3.json",
+  "report_ref": "tester-03/test_report.json"
+}

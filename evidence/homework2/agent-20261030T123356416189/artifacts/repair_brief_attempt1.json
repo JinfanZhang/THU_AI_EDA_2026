@@ -1,0 +1,44 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T123356416189",
+  "attempt": 1,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:39:53+00:00",
+  "hypothesis": "The failure is a pure elaboration/interface-mismatch problem in the top-level assembly, not a logic bug. In rtl/rv32i5.sv the reorder_buffer instance u_rob is connected to ports that the module does not declare (retire_valid, retire_pc, retire_insn, bp_resolve, bp_mispredict) — i.e. the top was wired to a different/older interface contract than the one reorder_buffer actually exports. In parallel, the nets dc_idle (from dcache.idle) and squash_valid (from reorder_buffer.squash_valid) are each driven by a module output AND also assigned/used as procedural or continuous drivers in the top, so the compiler collapses them to implicit uwires with multiple drivers ('Unresolved net/uwire ... cannot have multiple drivers' / 'Output port expression must support continuous assignment'). The constant-select 'sorry' lines are benign tool notes, not the blocker. Fixing the port-name alignment between rv32i5 and reorder_buffer and making each of these nets single-driver (declared as logic and driven only by the submodule output) will clear all 14 elaboration errors.",
+  "confidence": "high",
+  "files": [
+    "rtl/rv32i5.sv",
+    "rtl/reorder_buffer.sv"
+  ],
+  "symbols": [
+    "u_rob",
+    "dc_idle",
+    "squash_valid",
+    "retire_valid",
+    "retire_pc",
+    "retire_insn",
+    "bp_resolve",
+    "bp_mispredict"
+  ],
+  "constraints": [
+    "Top-level port names, directions and widths in rv32i5 must remain exactly as the frozen §A contract (clk, rst_n, imem_*, dmem_*, dbg_*, halted, exit_code, dbg_features, dbg_retire_*, dbg_bp_*, dbg_ooo_*).",
+    "reorder_buffer must actually export every port the top instantiates: retirement observation (retire_valid/retire_pc/retire_insn) and branch-resolve observation (bp_resolve/bp_mispredict), plus squash_valid; the top instance may not referenc",
+    "Each intermediate net (dc_idle, squash_valid, and any other submodule output) must have exactly one driver: declare it as logic and connect it only to the submodule output port; never also drive it with assign/always.",
+    "Do not change dcache idle semantics: idle is the single blocking-miss-done output defined by the frozen dcache contract.",
+    "Preserve single-cycle memory model and rst_n synchronous active-low semantics; do not insert wait states or register submodule responses to work around the compile errors.",
+    "Do not alter the teacher TB, spec, or scoring scripts; no hardcoded vectors or fake debug/feature flags."
+  ],
+  "verification_targets": [
+    "Compile/elaboration stage must report 0 errors (currently 14 errors) and pass 'Teacher TB failed (Compile)' -> pass.",
+    "No remaining 'port ... is not a port of u_rob' errors: u_rob instance resolves all retire_*/bp_* ports.",
+    "No remaining 'Unresolved net/uwire dc_idle/squash_valid cannot have multiple drivers' errors: both nets show a single driver.",
+    "No remaining 'Output port expression must support continuous assignment' errors at the dcache.idle and reorder_buffer.squash_valid instance lines."
+  ],
+  "rejected_hypotheses": [
+    "Load-use stall / forwarding / branch-flush functional bugs: unreachable because compilation never completes; no evidence yet at Compile stage.",
+    "The 'constant selects in always_* processes are not supported' lines are the root cause: they are tool notices, not the fatal errors; the 14 elaboration errors are port/multi-driver mismatches.",
+    "Halt/ECALL or reset-semantics violations: cannot be observed until the design elaborates and simulates."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt1.json",
+  "report_ref": "tester-01/test_report.json"
+}

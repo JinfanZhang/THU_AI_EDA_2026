@@ -1,0 +1,37 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T142923838903",
+  "attempt": 1,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:33:08+00:00",
+  "hypothesis": "The only failing check is `capability='expected level 2 but RTL declared level 1'`, while the entire performance_correctness suite (33748 checks) passes and the run halts correctly (halted=1, exit_code=0x820). The top-level `dbg_features` is being driven as the constant L1 value 3'b001 instead of the L2 constant 3'b011, so the TB's capability prober reads level 1 and gates L2. The RTL is functionally sound at L1; the defect is the hardwired capability declaration, not a datapath/timing bug. The mechanism: `dbg_features` is a fixed output that must be the literal 3'b011 from time 0 for an L2 implementation; it is currently the L1 literal 3'b001, so `AI_EDA_CAPABILITY level=1 declared=1 expected=2` fails despite all 241386 preceding functional checks passing.",
+  "confidence": "high",
+  "files": [
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "dbg_features"
+  ],
+  "constraints": [
+    "dbg_features must be the constant 3'b011 (L2), driven continuously from time 0, and must never change dynamically or be conditionally/faked",
+    "All other top-level ports and their widths/semantics stay exactly as frozen (imem/dmem, halted, exit_code, dbg_retire_*, dbg_bp_resolve/mispredict, dbg_ooo_issue/bypass)",
+    "Do not modify the teacher TB, the spec, or scoring scripts",
+    "Do not weaken or alter the base L1 pipeline, cache, forwarding, hazard, halt/reset semantics that currently pass 33748 checks",
+    "Keep synchronous active-low reset semantics; halted/exit_code/registers frozen after halt",
+    "The capability literal is not a debug flag to be toggled by tests — it is a static compile-time constant"
+  ],
+  "verification_targets": [
+    "Capability check flips to pass: AI_EDA_CAPABILITY level=2, declared=2, verified=2, expected=2, dbg_features read as 3'b011 at t=0 and after reset",
+    "performance_correctness suite still passes with 0 failures (all 33748+ checks) and bench_ooo_overlap64 still halts with exit_code=0x820",
+    "After capability gating opens, L2 dynamic-branch-prediction tests (BTB/JAL/JALR prediction, BHT training: <=8 mispredicts over 64 resolves, 132 retired) and I/D cache behavior still hold; if any of these regress, that is a separate follow-u"
+  ],
+  "rejected_hypotheses": [
+    "Load-use stall / forwarding bug — all functional and exit checks pass",
+    "Branch/JAL/JALR mispredict or flush bug — mispredicts=0, branches=0 in this run, all checks pass",
+    "Halt/reset/ECALL commit bug — halted=1, exit_code matches x10=0x820",
+    "Memory handshake / cache wait-state bug — dmem reads/writes complete and checks pass",
+    "Any pstage datapath defect — the sole failure is a static capability declaration mismatch"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt1.json",
+  "report_ref": "tester-01/test_report.json"
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T123356416189",
+  "attempt": 4,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:42:20+00:00",
+  "hypothesis": "The persistent Compile failure is not the 'sorry: constant selects in always_*' messages — those are Icarus warnings that widen a select to the whole vector and are benign — but a set of elaboration-time binding errors in the top-level assembly. rtl/rv32i5.sv instantiates the L3 submodules (icache, dcache, branch_predictor, fetch_unit, rename_unit, issue_queue, reorder_buffer, load_store_unit, prf, alu), and at least one of those instance port maps does not match the freshly frozen §A interface exported by the module: a connected signal name/width differs from the submodule declaration, an output of a submodule is connected to a net that is also driven procedurally or by another instance, or a module is instantiated under a name/port set the compiled file does not define. Icarus resolves each of these as an 'error(s) during elaboration' (unable to bind / port-expression / multiple-driver class) while still emitting the harmless constant-select 'sorry' notes from the always blocks around lines 311 and 1035. Attempts 1–3 only patched net declarations and rewrote always-block select sites but never reconciled every top-level instance's port map and driver fan-in against the frozen contract, so the binding errors survived all four attempts.",
+  "confidence": "medium",
+  "files": [
+    "rtl/rv32i5.sv",
+    "rtl/icache.sv",
+    "rtl/dcache.sv"
+  ],
+  "symbols": [
+    "u_icache",
+    "u_dcache",
+    "u_bp",
+    "u_fetch",
+    "cpu_req_ready",
+    "cpu_resp_valid",
+    "mem_req_valid",
+    "mem_req_ready",
+    "flush_epoch",
+    "idle",
+    "predict_npc",
+    "predict_hit"
+  ],
+  "constraints": [
+    "Preserve every frozen §A port name/direction/width on the top rv32i5 (clk, rst_n, imem_*, dmem_valid/we/addr/wdata/be/rdata/ready, dbg_reg_addr, dbg_reg_data, halted, exit_code, dbg_features[2:0], dbg_retire_*, dbg_bp_resolve, dbg_bp_mispre",
+    "Do not rename or rewidth the frozen submodule interfaces for icache/dcache (cpu_req_*, cpu_resp_*, mem_req_*, mem_resp_*, flush, flush_epoch[1:0], idle) or branch_predictor (predict_req_valid, predict_pc, predict_npc, predict_hit, predict_t",
+    "Every net that receives a submodule output must be single-driver (declared logic, driven only by that instance output); no net may be simultaneously a submodule output and a procedural/continuous assign target.",
+    "Keep synchronous active-low reset semantics: all registered outputs including dmem_valid/imem_valid must be 0 during reset and before the first reset edge.",
+    "Do not change the teacher TB, spec, or scoring scripts; do not hardcode test vectors or fake debug/feature flags (dbg_features must remain constant 3'b111).",
+    "Top remains pure wiring + global control; icache, dcache, branch_predictor, rename_unit, issue_queue, reorder_buffer, load_store_unit must stay as separate instantiated modules."
+  ],
+  "verification_targets": [
+    "Compile stage reports 0 errors and 0 'error(s) during elaboration' (previously '5 error(s) during elaboration').",
+    "No residual 'Unresolved net/uwire ... multiple drivers' or 'Output port expression must support continuous assignment' diagnostics for any top-level or cache/predictor instance port.",
+    "All submodules elaborate (icache, dcache, branch_predictor, fetch_unit, rename_unit, issue_queue, reorder_buffer, load_store_unit, prf, alu) with every instantiated port resolvable, advancing the run past Compile to the simulation stage.",
+    "dbg_features reads 3'b111 from time 0 and halted/exit_code observe the committed ECALL path."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1 (reorder_buffer port mismatch + dc_idle/squash_valid single-driver fix) — applied, same elaboration failures persist.",
+    "Attempt 2 (constant-select always_* creating multiple-driver nets on dcache/branch_predictor/top) — applied, same 5 elaboration errors persist.",
+    "Attempt 3 (the 'sorry: constant selects' notes ARE the 5 errors, fix by rewriting all always_* select sites to full-vector assignments) — the 'sorry' lines are benign Icarus warnings ('all bits will be included'), not elaboration errors; re"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt4.json",
+  "report_ref": "tester-04/test_report.json"
+}

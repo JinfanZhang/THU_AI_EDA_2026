@@ -1,0 +1,38 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T124311252478",
+  "attempt": 4,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:56:36+00:00",
+  "hypothesis": "The Icarus Verilog 12 -g2012 compile still aborts because the physical register file in rtl/prf.sv uses an aggregate/whole-array reset assignment such as `prf_regs <= '0;` inside an always_ff block. Icarus reports 'Assignment to an entire array or to an array slice is not yet supported' for that construct and the subsequent packed_dimensions assertion during elaboration is triggered while elaborating the same unsupported array assignment. Previous repairs focused on cache/BTB arrays but did not inspect prf.sv, where a register-file reset almost always uses the prohibited whole-array write. The fix must replace the aggregate reset with an explicit per-entry reset (e.g. a generate loop or hand-unrolled always_ff per physical register) while preserving the module ports and the write/read behavior.",
+  "confidence": "medium",
+  "files": [
+    "rtl/prf.sv"
+  ],
+  "symbols": [
+    "prf_regs",
+    "prf_write_valid",
+    "prf_write_pr",
+    "prf_write_data",
+    "prf_read1_addr",
+    "prf_read2_addr"
+  ],
+  "constraints": [
+    "Do not change the prf module port names, widths, or directions.",
+    "Reset must clear every physical register without using whole-array or array-slice assignment; use explicit per-entry reset logic.",
+    "Write port updates only the selected register index when prf_write_valid is high, and read ports must remain combinational.",
+    "Keep the physical register count and indexing scheme unchanged."
+  ],
+  "verification_targets": [
+    "Icarus Verilog 12 -g2012 compilation exits successfully with no 'Assignment to an entire array or to an array slice is not yet supported' errors and no elab_expr assertion.",
+    "After reset deassertion, all physical registers read back 0.",
+    "A write to a physical register followed by a read to the same index returns the written data in the same simulation."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1 (break statements in issue_queue/reorder_buffer/load_store_unit) did not resolve the current array-assignment compile abort.",
+    "Attempt 2 (remaining break statements in rename_unit/branch_predictor/icache) did not match the current error signature.",
+    "Attempt 3 (aggregate writes in dcache/icache/branch_predictor) addressed likely files but the compile still fails, indicating the offending aggregate assignment is in another module such as prf.sv."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt4.json",
+  "report_ref": "tester-04/test_report.json"
+}

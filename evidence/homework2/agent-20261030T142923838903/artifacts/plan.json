@@ -1,0 +1,73 @@
+{
+  "project_name": "rv32i5_l2",
+  "top_module": "rv32i5",
+  "modules": [
+    {
+      "name": "rv32i5",
+      "file": "rtl/rv32i5.sv",
+      "description": "顶层：固定高级接口，例化五级流水线、I/D Cache、分支预测器、冒险与前递单元，连接外部字总线和调试/退休端口。",
+      "interfaces": "input logic clk; input logic rst_n; output logic [31:0] imem_addr; input logic [31:0] imem_rdata; output logic imem_valid; input logic imem_ready; output logic dmem_valid; output logic dmem_we; output logic [31:0] dmem_addr; output logic [31:0] dmem_wdata; output logic [3:0] dmem_be; input logic [31:0] dmem_rdata; input logic dmem_ready; input logic [4:0] dbg_reg_addr; output logic [31:0] dbg_reg_data; output logic halted; output logic [31:0] exit_code; output logic [2:0] dbg_features; output logic dbg_retire_valid; output logic [31:0] dbg_retire_pc; output logic [31:0] dbg_retire_insn; output logic dbg_bp_resolve; output logic dbg_bp_mispredict; output logic dbg_ooo_issue; output logic dbg_ooo_bypass"
+    },
+    {
+      "name": "if_stage",
+      "file": "rtl/if_stage.sv",
+      "description": "IF 级：维护 PC，向 I-Cache 发取指请求，接收预测下一 PC，生成 IF/ID 寄存器；支持重定向、load-use/总线停顿、halt-pending 与 halted 冻结。",
+      "interfaces": "input logic clk; input logic rst_n; input logic pred_valid; input logic [31:0] pred_next_pc; input logic if_stage_stall; input logic halt_pending; input logic halted; input logic if_stage_redirect_valid; input logic [31:0] if_stage_redirect_target; output logic [31:0] lookup_pc; output logic cpu_req_valid; output logic [31:0] cpu_req_addr; input logic cpu_req_ready; input logic cpu_resp_valid; input logic [31:0] cpu_resp_data; output logic if_id_valid; output logic [31:0] if_id_pc; output logic [31:0] if_id_insn; output logic [31:0] if_id_pred_pc; output logic if_id_pred_valid"
+    },
+    {
+      "name": "id_stage",
+      "file": "rtl/id_stage.sv",
+      "description": "ID 级：译码、立即数生成、控制信号生成、寄存器堆读写（含写优先旁路）、识别 ECALL，并生成 ID/EX 寄存器。",
+      "interfaces": "input logic clk; input logic rst_n; input logic if_id_valid; input logic [31:0] if_id_pc; input logic [31:0] if_id_insn; input logic [31:0] if_id_pred_pc; input logic if_id_pred_valid; input logic mem_busy; input logic id_ex_flush; input logic wb_reg_write; input logic [4:0] wb_rd; input logic [31:0] wb_wb_data; input logic [4:0] dbg_reg_addr; output logic [31:0] dbg_reg_data; output logic [31:0] arch_x10; output logic [4:0] id_stage_rs1; output logic [4:0] id_stage_rs2; output logic id_stage_rs1_used; output logic id_stage_rs2_used; output logic id_stage_is_ecall; output logic id_ex_valid; output logic [31:0] id_ex_pc; output logic [31:0] id_ex_pc_plus4; output logic [31:0] id_ex_insn; output logic [4:0] id_ex_rs1; output logic [4:0] id_ex_rs2; output logic [4:0] id_ex_rd; output logic [31:0] id_ex_rs1_data; output logic [31:0] id_ex_rs2_data; output logic [31:0] id_ex_imm; output logic [4:0] id_ex_alu_op; output logic [1:0] id_ex_alu_src_a; output logic [1:0] id_ex_alu_src_b; output "
+    },
+    {
+      "name": "ex_stage",
+      "file": "rtl/ex_stage.sv",
+      "description": "EX 级：操作数前递选择后执行 ALU、分支/JAL/JALR 解析与目标计算、预测校验、BTB/BHT 更新事件，生成 EX/MEM 寄存器。",
+      "interfaces": "input logic clk; input logic rst_n; input logic id_ex_valid; input logic [31:0] id_ex_pc; input logic [31:0] id_ex_pc_plus4; input logic [31:0] id_ex_insn; input logic [4:0] id_ex_rs1; input logic [4:0] id_ex_rs2; input logic [4:0] id_ex_rd; input logic [31:0] id_ex_rs1_data; input logic [31:0] id_ex_rs2_data; input logic [31:0] id_ex_imm; input logic [4:0] id_ex_alu_op; input logic [1:0] id_ex_alu_src_a; input logic [1:0] id_ex_alu_src_b; input logic id_ex_reg_write; input logic id_ex_mem_read; input logic id_ex_mem_write; input logic id_ex_is_branch; input logic [2:0] id_ex_branch_funct3; input logic id_ex_is_jal; input logic id_ex_is_jalr; input logic id_ex_is_load; input logic id_ex_is_store; input logic [2:0] id_ex_load_funct3; input logic [2:0] id_ex_store_funct3; input logic id_ex_is_ecall; input logic [31:0] id_ex_pred_pc; input logic id_ex_pred_valid; input logic [1:0] fwd_rs1_sel; input logic [1:0] fwd_rs2_sel; input logic [31:0] mem_wb_wb_data; input logic mem_busy; output l"
+    },
+    {
+      "name": "mem_stage",
+      "file": "rtl/mem_stage.sv",
+      "description": "MEM 级：处理 load/store 与 D-Cache 握手，store data MEM/WB 前递，load 数据符号/零扩展，等待 dcache 响应后生成 MEM/WB 寄存器并产生 mem_busy。",
+      "interfaces": "input logic clk; input logic rst_n; input logic ex_mem_valid; input logic [31:0] ex_mem_pc; input logic [31:0] ex_mem_pc_plus4; input logic [31:0] ex_mem_insn; input logic [4:0] ex_mem_rd; input logic [4:0] ex_mem_rs2; input logic ex_mem_reg_write; input logic ex_mem_mem_read; input logic ex_mem_mem_write; input logic [31:0] ex_mem_alu_result; input logic [31:0] ex_mem_store_data; input logic [2:0] ex_mem_load_funct3; input logic [2:0] ex_mem_store_funct3; input logic ex_mem_is_ecall; input logic halted; input logic cpu_req_ready; input logic cpu_resp_valid; input logic [31:0] cpu_resp_rdata; output logic cpu_req_valid; output logic cpu_req_we; output logic [31:0] cpu_req_addr; output logic [31:0] cpu_req_wdata; output logic [3:0] cpu_req_be; output logic mem_busy; output logic mem_wb_valid; output logic [31:0] mem_wb_pc; output logic [31:0] mem_wb_insn; output logic [4:0] mem_wb_rd; output logic mem_wb_reg_write; output logic [31:0] mem_wb_wb_data; output logic mem_wb_is_ecall"
+    },
+    {
+      "name": "wb_stage",
+      "file": "rtl/wb_stage.sv",
+      "description": "WB 级：写回使能与数据输出、ECALL 提交、退休单脉冲、halted/exit_code 寄存，保证每拍最多一条退休且停机后稳定。",
+      "interfaces": "input logic clk; input logic rst_n; input logic mem_wb_valid; input logic [31:0] mem_wb_pc; input logic [31:0] mem_wb_insn; input logic [4:0] mem_wb_rd; input logic mem_wb_reg_write; input logic [31:0] mem_wb_wb_data; input logic mem_wb_is_ecall; input logic [31:0] arch_x10; output logic wb_reg_write; output logic [4:0] wb_rd; output logic [31:0] wb_wb_data; output logic dbg_retire_valid; output logic [31:0] dbg_retire_pc; output logic [31:0] dbg_retire_insn; output logic halted; output logic [31:0] exit_code; output logic ecall_commit_pulse"
+    },
+    {
+      "name": "hazard_unit",
+      "file": "rtl/hazard_unit.sv",
+      "description": "冒险控制：检测 load-use 暂停、重定向冲刷、ECALL halt-pending 状态与总线忙冻结，输出 IF/ID/ID-EX 控制。",
+      "interfaces": "input logic clk; input logic rst_n; input logic if_id_valid; input logic [4:0] id_stage_rs1; input logic [4:0] id_stage_rs2; input logic id_stage_rs1_used; input logic id_stage_rs2_used; input logic id_stage_is_ecall; input logic id_ex_valid; input logic id_ex_mem_read; input logic [4:0] id_ex_rd; input logic ex_redirect_valid; input logic [31:0] ex_redirect_target; input logic mem_busy; output logic load_use_stall; output logic id_ex_flush; output logic if_stage_stall; output logic if_stage_redirect_valid; output logic [31:0] if_stage_redirect_target; output logic halt_pending; output logic halt_pending_set"
+    },
+    {
+      "name": "forwarding_unit",
+      "file": "rtl/forwarding_unit.sv",
+      "description": "EX 级前递选择：比较 EX/MEM 与 MEM/WB 的写回信息，产生 rs1/rs2 前递 mux 选择；EX/MEM load 不参与 EX 前递。",
+      "interfaces": "input logic id_ex_valid; input logic [4:0] id_ex_rs1; input logic [4:0] id_ex_rs2; input logic ex_mem_valid; input logic ex_mem_reg_write; input logic [4:0] ex_mem_rd; input logic ex_mem_mem_read; input logic mem_wb_valid; input logic mem_wb_reg_write; input logic [4:0] mem_wb_rd; output logic [1:0] fwd_rs1_sel; output logic [1:0] fwd_rs2_sel"
+    },
+    {
+      "name": "icache",
+      "file": "rtl/icache.sv",
+      "description": "I-Cache：256B 直接映射、16B line、16 lines、4-word refill；实现 CPU 请求/响应握手、flush/epoch 丢弃与外部字总线请求保持。",
+      "interfaces": "input logic clk; input logic rst_n; input logic cpu_req_valid; input logic [31:0] cpu_req_addr; output logic cpu_req_ready; output logic cpu_resp_valid; output logic [31:0] cpu_resp_data; input logic flush; input logic [1:0] flush_epoch; output logic mem_req_valid; output logic [31:0] mem_req_addr; input logic mem_req_ready; input logic mem_resp_valid; input logic [31:0] mem_resp_data"
+    },
+    {
+      "name": "dcache",
+      "file": "rtl/dcache.sv",
+      "description": "D-Cache：256B 直接映射、16B line、16 lines、write-through+write-allocate；处理 load/store CPU 握手、refill、write-through 接受响应、flush/epoch 与外部字总线。",
+      "interfaces": "input logic clk; input logic rst_n; input logic cpu_req_valid; input logic cpu_req_we; input logic [31:0] cpu_req_addr; input logic [31:0] cpu_req_wdata; input logic [3:0] cpu_req_be; output logic cpu_req_ready; output logic cpu_resp_valid; output logic [31:0] cpu_resp_rdata; input logic flush; input logic [1:0] flush_epoch; output logic mem_req_valid; output logic mem_req_we; output logic [31:0] mem_req_addr; output logic [31:0] mem_req_wdata; output logic [3:0] mem_req_be; input logic mem_req_ready; input logic mem_resp_valid; input logic [31:0] mem_resp_data"
+    },
+    {
+      "name": "branch_predictor",
+      "file": "rtl/branch_predictor.sv",
+      "description": "L2 动态分支预测：16-entry 直接映射 BTB（PC[5:2] 索引、完整 PC tag、32-bit target、类型）与 16-entry 2-bit 饱和 BHT；lookup 组合读旧内容，解析后更新。",
+      "interfaces": "input logic clk; input logic rst_n; input logic [31:0] lookup_pc; input logic update_valid; input logic [31:0] update_pc; input logic [31:0] update_target; input logic update_is_branch; input logic update_is_jal; input logic update_is_jalr; input logic update_taken; output logic pred_valid; output logic pred_taken; output logic [31:0] pred_target; output logic [31:0] pred_next_pc"
+    }
+  ],
+  "notes": "顶层固定端口按 §A；dbg_features=3'b011，dbg_ooo_issue=0，dbg_ooo_bypass=0。顶层将 icache.mem_req_valid/mem_req_addr 接 imem_valid/imem_addr，imem_ready 同时接 icache.mem_req_ready 与 mem_resp_valid，imem_rdata 接 icache.mem_resp_data；dcache 同理接 dmem_*，dmem_ready 同时接 dcache.mem_req_ready 与 mem_resp_valid。顶层维护 2-bit flush_epoch，复位 0，在 ex_redirect_valid 或 halt_pending_set 时加 1；flush=ex_redirect_valid|halt_pending_set 送两个 Cache。if_stage 的 lookup_pc 接 branch_predictor.lookup_pc，pred_next_pc/pred_valid 由 predictor 回送；EX 的 update_* 接 predictor。mem_stage.mem_busy 同时作为 id_stage/ex_stage 保持和 hazard 的 if_stage_stall 来源；hazard_unit 的 id_ex_flush 在 load-use 或 redirect 时清 ID/EX valid，mem_busy 时保持。wb_stage.dbg_retire_*、halted、exit_code 直连顶层；id_stage.dbg_reg_data 直连 dbg_reg_data。所有跨模块信号使用上述同名同宽端口。"
+}

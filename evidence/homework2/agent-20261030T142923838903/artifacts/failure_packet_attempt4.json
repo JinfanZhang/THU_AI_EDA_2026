@@ -1,0 +1,116 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T142923838903",
+  "attempt": 4,
+  "project_id": "rv32i5_predict",
+  "created_at": "2026-10-30T14:35:39+00:00",
+  "stage": "compile",
+  "stage_label": "Compile",
+  "passed": false,
+  "summary": "Teacher TB failed (Compile).",
+  "failed_checks": [],
+  "failed_check_count": 0,
+  "first_deviation": null,
+  "failing_suites": [],
+  "log_excerpt": "mpt4.sv:806: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:806: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:806: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:806: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T142923838903/artifacts/generated_attempt4.sv:266: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n2 error(s) during elaboration.",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/alu.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/alu.sv",
+      "bytes": 1261,
+      "sha256": "19e256ac0b6fff77"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "bytes": 5323,
+      "sha256": "2933f851faf7c373"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "bytes": 9743,
+      "sha256": "48089c2d3f9850e9"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "bytes": 6706,
+      "sha256": "14f2899bd63e3878"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "bytes": 1502,
+      "sha256": "9fe07f2535cec6b1"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "bytes": 1588,
+      "sha256": "86d5381257123d1e"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "bytes": 5922,
+      "sha256": "c731d2f21d901ed1"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "bytes": 11083,
+      "sha256": "81fbb620147bb378"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "bytes": 3138,
+      "sha256": "8a04b6fb569802a1"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "bytes": 10690,
+      "sha256": "f162befa8c3317dd"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 19747,
+      "sha256": "c1080b23a5b2837f"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "bytes": 1460,
+      "sha256": "4de473ce471fe351"
+    }
+  ],
+  "references": {
+    "report": "tester-04/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest_attempt3.json"
+  }
+}

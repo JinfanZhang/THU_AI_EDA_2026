@@ -1,0 +1,19 @@
+{
+  "run_id": "agent-20261030T142923838903",
+  "project_id": "rv32i5_predict",
+  "project_title": "RV32I · L2 Cache + Predictor",
+  "agent_name": "EDA Auto-Design Agent",
+  "status": "failed",
+  "started_at": "2026-10-30T14:29:23.841+00:00",
+  "finished_at": "2026-10-30T14:36:18.240+00:00",
+  "attempts": 4,
+  "max_repair_attempts": 10,
+  "max_tester_attempts": 11,
+  "model": "deepseek-flash",
+  "base_url": "https://api.deepseek.com",
+  "temperature": null,
+  "max_tokens": 100000,
+  "thinking": true,
+  "reasoning_effort": "low",
+  "generation_mode": "agent_workflow_with_optional_retry"
+}

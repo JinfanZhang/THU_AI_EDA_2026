@@ -1,0 +1,54 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 9,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:22:52+00:00",
+  "hypothesis": "The pipeline's PC bookkeeping is off by one instruction: the IF/ID (and consequently ID/EX, EX/MEM, MEM/WB) pipeline registers capture the incremented next-PC (pc+4) as the instruction's PC instead of the PC of the word actually fetched, while the fetch data path itself is now correct (same-cycle imem_rdata consumption). Two coupled symptoms follow. (1) Every retirement reports the pair (program[pc+4], insn@pc), so the teacher TB's comparison 'retire PC/instruction does not match the loaded program' fires on essentially every retire — matching the long tail of identical t13_dft mismatch lines. (2) Because the same wrong base flows into EX, every PC-relative operation (branch target = pc+imm, JAL/JALR link = pc+4 of the wrong pc, AUIPC = pc+imm) and every comparison of the carried prediction (id_ex_pred_next_pc vs the resolved next PC) is offset by 4 bytes; the front-end therefore keeps redirecting to off-by-4 targets, the program stream diverges from the loaded image, the real ECALL word is never decoded/committed at the right PC, halted never asserts, and the TB burns the full 20 s budget — the single scored failure simulation_timeout. This is a distinct root cause from the earlier imem/dmem request-hold, stall/deadlock and BP-update-plumbing framings: the fetch handshake and the memory holds are no longer the issue; the defect is that the PC carried alongside an instruction is not that instruction's own PC.",
+  "confidence": "medium",
+  "files": [
+    "rtl/if_stage.sv",
+    "rtl/rv32i5.sv",
+    "rtl/wb_stage.sv"
+  ],
+  "symbols": [
+    "if_id_pc",
+    "id_ex_pc",
+    "id_ex_pc_plus4",
+    "ex_mem_pc",
+    "mem_wb_pc",
+    "dbg_retire_pc",
+    "dbg_retire_insn",
+    "dbg_retire_valid",
+    "pc_reg",
+    "pc_next",
+    "id_ex_pred_next_pc"
+  ],
+  "constraints": [
+    "Do not modify the teacher TB, the spec, or scoring scripts; only RTL files listed may change.",
+    "Top-level port list and names of rv32i5 are frozen exactly as specified (clk, rst_n, imem_*, dmem_*, dbg_*, halted, exit_code); no port may be added, removed or renamed.",
+    "Retirement contract: dbg_retire_pc must be the PC of the instruction being retired (not pc+4, not a live/younger PC) and dbg_retire_insn must be that same instruction word; dbg_retire_valid must pulse exactly one cycle per committed instruc",
+    "PC-relative semantics must be preserved: branch target = pc + imm, JAL/JALR link = pc + 4 of the jumping instruction, AUIPC = pc + {inst[31:12],12'b0}; the prediction carried in id_ex_pred_next_pc must be compared against the resolved next ",
+    "Halt semantics: only WB may set halted/exit_code, and only for a committed ECALL (word 32'h0000_0073); after halt, PC fetch and retirement must freeze.",
+    "Reset: synchronous active-low reset; every registered output including dmem_valid, imem_valid, dbg_retire_valid and halted is 0 during reset and before the first post-reset fetch edge; imem_addr=0 and imem_addr[1:0]=00 during reset and runn",
+    "Memory model is single-cycle: imem_rdata/dmem_rdata are valid in the same cycle as the address; do not add wait states or extra response registers, do not re-introduce multi-cycle handshake holds that deadlocked earlier rounds.",
+    "Icarus Verilog 12 constraints: no variable part-selects in procedural loops, no break/continue, no whole-array/slice assignment, no inside/assert/class/interface, no signal redeclaration, files under ~600 lines."
+  ],
+  "verification_targets": [
+    "t13_dft: every observed retire pair satisfies dbg_retire_insn == program[dbg_retire_pc] (zero 'retire PC/instruction does not match the loaded program' lines) and the run terminates well within the 20 s budget.",
+    "simulation_timeout flips to pass: halted asserts with a valid exit_code and the TB ends before its cycle cap on all teacher tests.",
+    "Retire count equals the architectural instruction count of each test (e.g. 132 retired instructions for the 64-control-transfer main training program), with dbg_retire_valid pulsing once per committed instruction and never while halted is h",
+    "Control-flow integrity: taken branch/JAL/JALR redirects land on pc+imm / (rs1+imm)&32'hffff_fffe, and the resolved next PC of each instruction equals the prediction carried in id_ex_pred_next_pc when correct (no spurious mispredicts caused ",
+    "imem_addr[1:0] == 2'b00 every cycle, imem_addr == 0 during reset, and imem_valid/dmem_valid are 0 during reset."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 3: BHT/BP update plumbing (bp_update_valid never strobed, dbg_bp_resolve under-reported) — was applied; the failure signature is now a uniform retire PC/instruction mismatch, not a predictor-training deficit.",
+    "Attempt 4: IF not consuming bp_pred_taken/bp_pred_target plus dmem-wait overlap and imem handshake gating — applied; memory handshakes are no longer the observed deviation.",
+    "Attempt 5: deadlock at a frozen imem_addr with zero retirements — contradicted, retirement activity and mismatch messages are present.",
+    "Attempt 6: missing registered request-hold on the dmem path causing 'D-memory request changed before ready' — applied and no longer the failing check.",
+    "Attempt 7: missing registered stable fetch request / imem_ready gating — applied; the current run does not show I-memory request-changed violations.",
+    "Attempt 8: same-cycle response lag (extra IF register pairing address N with data N-4) — applied; rather than a wrong fetch beat, the evidence now points to the PC value carried with each instruction being pc+4 instead of the instruction's "
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt9.json",
+  "report_ref": "tester-09/test_report.json"
+}

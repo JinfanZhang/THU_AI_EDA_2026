@@ -1,0 +1,51 @@
+{
+  "schema_version": "run_summary/1",
+  "run_id": "agent-20261030T140451260360",
+  "project_id": "rv32i5_predict",
+  "cpu_level": 2,
+  "model": "deepseek-flash",
+  "params": {
+    "temperature": 0.2,
+    "max_tokens": 100000,
+    "thinking": true,
+    "reasoning_effort": "low",
+    "max_calls": 120,
+    "max_repair_attempts": 10,
+    "planner_skill": false
+  },
+  "model_calls": 23,
+  "tokens": {
+    "prompt_tokens": 235694,
+    "completion_tokens": 178650,
+    "total_tokens": 414344
+  },
+  "tester_attempts": 11,
+  "repair_rounds": 10,
+  "wall_clock_seconds": 1106.2,
+  "passed": false,
+  "stage": "simulation",
+  "metrics": {},
+  "files": [
+    "rtl/alu.sv",
+    "rtl/branch_predictor.sv",
+    "rtl/dcache.sv",
+    "rtl/ex_stage.sv",
+    "rtl/forwarding_unit.sv",
+    "rtl/hazard_unit.sv",
+    "rtl/icache.sv",
+    "rtl/id_stage.sv",
+    "rtl/if_stage.sv",
+    "rtl/mem_stage.sv",
+    "rtl/rv32i5.sv",
+    "rtl/wb_stage.sv"
+  ],
+  "key_artifacts": {
+    "result": "result.json",
+    "events": "events.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest_attempt10.json",
+    "report": "tester-11/test_report.json"
+  },
+  "resumed_from": null
+}

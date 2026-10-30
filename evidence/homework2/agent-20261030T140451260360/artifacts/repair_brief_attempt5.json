@@ -1,0 +1,51 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 5,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:17:05+00:00",
+  "hypothesis": "The design now deadlocks during the first few fetches: every benchmark freezes with imem_addr=0x0000000c, retired count=0, and halted=0 until the simulation-timeout. The identical frozen PC (0x0c, i.e. the 4th word) across crc32, array_sum and the ooo test shows the front-end is held on a pending fetch/handshake that never completes rather than a datapath value error. The wait-state/hold logic added in the last round (imem-ready gating and dmem-wait overlap in if_stage/mem_stage/rv32i5) never releases: the stage asserts imem_valid for the pending word but either deasserts/re-toggles the request or requires a ready/response handshake the top level never produces under the single-cycle model, so imem_addr stays pinned and the pipeline makes zero forward progress. Because no instruction can retire, dbg_retire_valid never pulses, all dbg_reg reads return 0, no ECALL can commit to set halted, and the teacher TB reaches its cycle cap (whole run >20 s) for every test — exactly the observed simulation_timeout with x17=0, x18=0, DMEM untouched and retired=0.",
+  "confidence": "medium",
+  "files": [
+    "rtl/if_stage.sv",
+    "rtl/rv32i5.sv",
+    "rtl/mem_stage.sv"
+  ],
+  "symbols": [
+    "imem_valid",
+    "imem_ready",
+    "imem_addr",
+    "dmem_valid",
+    "dmem_ready",
+    "dmem_resp_valid",
+    "cpu_req_ready",
+    "cpu_resp_valid",
+    "stall",
+    "hold",
+    "dbg_retire_valid",
+    "halted"
+  ],
+  "constraints": [
+    "Preserve every top-level rv32i5 port name/width and the frozen stage/cache/branch_predictor port lists exactly.",
+    "Single-cycle memory model: imem/dmem must be serviced the same cycle the request is presented; do not introduce a multi-cycle wait-state or a ready/response handshake that the teacher TB is not required to satisfy.",
+    "imem_addr[1:0] must remain 00; during reset imem_addr=0 and dmem_valid=0, and no access issued while rst_n low.",
+    "Bubble/flush only via valid bits, never by holding a stage indefinitely; load-use holds PC/IF-ID/ID-EX for exactly one cycle, no permanent stall.",
+    "Halt/exit_code set only in WB for a committed ECALL; once halted freeze fetch and stop retiring. Do not modify TB, spec, or scoring.",
+    "Do not break the branch-predictor/dcache interfaces or the dbg_* observables wiring already fixed."
+  ],
+  "verification_targets": [
+    "bench_array_sum64 must reach halted within 5000 cycles (currently times out at pc=0x0c); PC must advance past 0x0c within the first few cycles.",
+    "bench_crc32_64bytes must reach halted within 20000 cycles (currently times out at pc=0x0c).",
+    "overall Simulation must finish under 20 s with no simulation_timeout check failure.",
+    "ooo_load_overlap_rename: retired count must be 21 (currently 0); x17=0x00000002, x18=0x00000075, DMEM[0x304]=0x00000075 (currently all 0/0xa5a5a5a5); issue-evidence and independent younger-ALU-during-load-wait checks must pass.",
+    "dbg_retire_valid must pulse for each committed instruction so retired count > 0 in all benchmarks."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1 (dbg_features capability bits under-asserted) — earlier functional suite passed; current failure is a hard hang, not a feature-declaration mismatch.",
+    "Attempt 2 (branch_predictor port-binding name mismatch) — design elaborates and runs; the hang is at fetch, not at elaboration.",
+    "Attempt 3 (missing EX resolution strobe / BHT never written) — would produce mispredicts, not retired=0 and a frozen PC.",
+    "Attempt 4 (IF ignoring predictor outputs + imem-request-changed/during outstanding + dmem-wait overlap) — these were applied and the failure mode changed to a total deadlock at 0x0c with retired=0, so the wait-state/gating mechanism they in"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt5.json",
+  "report_ref": "tester-05/test_report.json"
+}

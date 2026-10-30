@@ -1,0 +1,40 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T124311252478",
+  "attempt": 1,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:51:21+00:00",
+  "hypothesis": "The generated RTL contains SystemVerilog `break` statements inside procedural loops (likely used for searching free IQ/LSQ/ROB slots or selecting ready entries). Icarus Verilog 12 with -g2012 does not support `break`, producing the reported 'break statements not supported' errors. The accompanying 'syntax error' and 'Malformed statement' messages are almost certainly caused by the same unsupported loop constructs or by malformed statements adjacent to those loops (e.g., non-standard loop termination or incorrectly formed assignments). The fix must replace all `break`-based search/selection logic with pure combinational priority-encoder/generate-based logic that does not rely on early loop exit, while preserving all frozen module ports and handshake behavior.",
+  "confidence": "high",
+  "files": [
+    "rtl/issue_queue.sv",
+    "rtl/reorder_buffer.sv",
+    "rtl/load_store_unit.sv"
+  ],
+  "symbols": [
+    "iq_free_slot",
+    "rob_free_slot",
+    "lsq_free_slot",
+    "dispatch_valid",
+    "issue_valid",
+    "complete_valid",
+    "queue_alloc_ptr",
+    "retire_ptr"
+  ],
+  "constraints": [
+    "Do not change any module port names, bit widths, or the frozen valid/ready/squash/epoch handshake contracts.",
+    "Do not use `break`, `continue`, `inside`, `class`, `interface`, packed structs with arrays, `$readmemh`, or variable part-selects in procedural loops.",
+    "Replace loop-based search with explicit prioritized if/else chains, casez, or unrolled generate loops; only one queue/ROB/LSQ entry may be selected per cycle unless the contract explicitly allows multiple.",
+    "All outputs must remain 0 during reset and before the first reset edge; never violate dmem_valid=0 while rst_n is low.",
+    "Do not modify the teacher TB, spec, or scoring scripts; do not add test-vector hardcoding or fake feature flags.",
+    "Maintain single-cycle memory response semantics and do not insert extra wait states."
+  ],
+  "verification_targets": [
+    "Icarus Verilog 12 compile with -g2012 must complete without `break statements not supported`, `syntax error`, or `Malformed statement` errors.",
+    "The reported numeric constant warnings at lines 1100/1116 should be resolved or reduced to benign explicit-width constants.",
+    "After compile fixes, the design must still pass any existing compile-time interface checks and be synthesizable; no functional check should regress solely because break statements were removed."
+  ],
+  "rejected_hypotheses": [],
+  "packet_ref": "artifacts/failure_packet_attempt1.json",
+  "report_ref": "tester-01/test_report.json"
+}

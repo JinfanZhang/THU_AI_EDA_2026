@@ -1,0 +1,54 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 6,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:18:19+00:00",
+  "hypothesis": "The pipeline now runs (retired instructions progress, addresses advance), but every external data transaction violates the valid/ready contract: the D-memory adapter (top-level dmem driving + dcache mem_req_* handoff) does not register and hold the outgoing request. Because dmem has no separate response channel — the access completes only on the cycle dmem_ready=1 with dmem_rdata valid — the adapter must keep dmem_valid/dmem_we/dmem_addr/dmem_wdata/dmem_be bit-identical until ready is seen. Instead the request is recomputed combinationally each cycle from a still-moving source (CPU-side cpu_req_* is retried / the dcache re-derives mem_req_addr while it is still waiting, and the pipeline is not actually frozen while the access is outstanding), so dmem_valid/addr change while dmem_ready=0. That is exactly the repeated 'D-memory request changed before ready' check. Each such aborted attempt is retried and the line fill never completes cleanly, so one load takes ~48 cycles (trace cadence 517579 → 517627 → 517675), dmem_rdata is sampled at the wrong beat and returns the untouched pattern 0xa5a5a5a5, no ECALL can retire, halted stays 0, and the run blows the 20 s simulation budget — the single observed simulation_timeout. The mechanism is a missing request-hold/stall (pending register) on the dmem path, not a datapath or branch-predictor defect.",
+  "confidence": "medium",
+  "files": [
+    "rtl/mem_stage.sv",
+    "rtl/dcache.sv",
+    "rtl/rv32i5.sv"
+  ],
+  "symbols": [
+    "dmem_valid",
+    "dmem_ready",
+    "dmem_we",
+    "dmem_addr",
+    "dmem_wdata",
+    "dmem_be",
+    "dmem_rdata",
+    "cpu_req_valid",
+    "cpu_req_ready",
+    "cpu_resp_valid",
+    "mem_req_valid",
+    "mem_req_ready"
+  ],
+  "constraints": [
+    "Do not change the frozen rv32i5 top-level port list or any module port names/widths (dcache cpu_req_*/cpu_resp_*/mem_req_*/mem_resp_* and mem_stage ports stay as contracted).",
+    "dmem handshake is valid/ready only: a transaction completes on the cycle dmem_ready=1 with dmem_rdata valid; never wait for a separate dmem resp_valid signal (that was the attempt-5 deadlock).",
+    "While an access is outstanding (dmem_valid=1, dmem_ready=0) dmem_valid, dmem_we, dmem_addr, dmem_wdata and dmem_be must be held bit-stable and the pipeline/CPU request that produced them must be frozen; no new request may be launched.",
+    "dmem_addr is a byte address; keep dmem_be encoding consistent with the offset (SW=1111, SH=addr[1]?1100:0011, SB=0001<<addr[1:0]); write-through stores keep original dmem_addr[1:0].",
+    "dmem_valid must be 0 during rst_n low and before the first reset edge; no access may be issued while reset is asserted.",
+    "Same hold rule applies to imem (imem_valid/imem_addr stable until imem_ready) — do not reintroduce the previous unconditional imem gating that pinned imem_addr.",
+    "Do not modify the teacher TB, spec, or scoring scripts; do not hardcode test vectors or feature/debug flags.",
+    "Keep the reset synchronous active-low and the valid-based bubble/flush semantics (no data-value-based stalling)."
+  ],
+  "verification_targets": [
+    "Zero 'D-memory request changed before ready' and zero 'I-memory request changed before ready' CHECK lines in every bench (currently thousands in bench_array_sum64).",
+    "bench_array_sum64 reaches halted=1 with exit_code=0x820 and dmem_reads=64, finishing well inside the 20 s cap (target < ~100k cycles instead of >517k and climbing).",
+    "AI_EDA_TRACE mem_read cadence drops to roughly one event per access (no ~48-cycle retry loop), and dmem_rdata no longer returns the untouched 0xa5a5a5a5 pattern for the summed array.",
+    "simulation_timeout check flips to pass: the whole teacher run terminates with halted asserted for crc32 / array_sum / ooo benches.",
+    "If the predictor checks re-appear: >=64 dbg_bp_resolve pulses, <=8 mispredicts and 132 retired instructions on the 64-branch training case remain green."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1 (dbg_features under-asserted / L1 capability constant): capability probe is no longer the failing check; the run now fails on simulation_timeout with a live, progressing pipeline.",
+    "Attempt 2 (branch_predictor port-name binding mismatch / constant-select array writes): elaboration succeeds and instructions retire, so the design elaborates and runs; the constant-select warnings are not the cause of the 20 s timeout.",
+    "Attempt 3 (missing EX resolution strobe to bp_update_* / dbg_bp_*): BHT/resolution plumbing is not evidenced in this packet — there are no mispredict or resolve-count failures, only D-memory protocol violations and timeout.",
+    "Attempt 4 (if_stage ignoring bp_pred_* plus imem request instability): the visible protocol violation is now on the D side and the fetcher is advancing (PC moves, retired count grows), so prediction consumption is not the current blocker.",
+    "Attempt 5 (front-end deadlock pinned at imem_addr=0x0000000c with retired=0): the pipeline is no longer frozen at PC 0x0c with zero retirements; addresses advance and memory reads occur, so that deadlock is resolved and the residual defect "
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt6.json",
+  "report_ref": "tester-06/test_report.json"
+}

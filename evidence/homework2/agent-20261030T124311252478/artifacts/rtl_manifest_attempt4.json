@@ -1,0 +1,80 @@
+{
+  "schema_version": "rtl_manifest/2",
+  "run_id": "agent-20261030T124311252478",
+  "attempt": 4,
+  "created_at": "2026-10-30T12:56:44+00:00",
+  "files": [
+    {
+      "path": "rtl/alu_unit.sv",
+      "artifact": "project/rtl/alu_unit.sv",
+      "bytes": 7579,
+      "sha256": "01c562d65422a791566f48714d5d94bcdd36dbf9ac7000a200ac6cc7f7352c36"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "artifact": "project/rtl/branch_predictor.sv",
+      "bytes": 4731,
+      "sha256": "3ab47e6a4c5eb06be451a356fd4dd34f4d37186ae2b2b63cc0e2cf83faaee48a"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "artifact": "project/rtl/dcache.sv",
+      "bytes": 15145,
+      "sha256": "e36e751c147b7aee705f2f584bfcbe3fe4d5c5901460cb05e8ad8355032362e9"
+    },
+    {
+      "path": "rtl/decode_unit.sv",
+      "artifact": "project/rtl/decode_unit.sv",
+      "bytes": 4785,
+      "sha256": "dd04fd0d9b74764d480d7a65600e686596bab8c49f3977f49c4768d2e6660aa1"
+    },
+    {
+      "path": "rtl/fetch_unit.sv",
+      "artifact": "project/rtl/fetch_unit.sv",
+      "bytes": 4484,
+      "sha256": "54d1a60b281cb5617f05cc2028f732ffed7fe45027eb83aac0c6619bcb2e17be"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "artifact": "project/rtl/icache.sv",
+      "bytes": 6486,
+      "sha256": "157c2720a0ed7d344852d5c78c3d80fb15fbea8bf69cff680657c7bace1eb924"
+    },
+    {
+      "path": "rtl/issue_queue.sv",
+      "artifact": "project/rtl/issue_queue.sv",
+      "bytes": 12882,
+      "sha256": "734f4f949ea347a933f1d4fba0f14d02984c9c256d6c427740391806e4385b31"
+    },
+    {
+      "path": "rtl/load_store_unit.sv",
+      "artifact": "project/rtl/load_store_unit.sv",
+      "bytes": 7405,
+      "sha256": "fd045ca5f5b4e6dbfecd50abd2988d4fb47fb64d71ad3a082b29dc3743f9fdaf"
+    },
+    {
+      "path": "rtl/prf.sv",
+      "artifact": "project/rtl/prf.sv",
+      "bytes": 2961,
+      "sha256": "d83f3461031f8dafb8ab96e49fa6c7bf03fd6beceed94f71d2b9eecadfbac798"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "artifact": "project/rtl/rename_unit.sv",
+      "bytes": 10267,
+      "sha256": "f1bad82311b3d8d05b6d3b13cacca75c328804fa2f51c9a17a7fa1c175077e7e"
+    },
+    {
+      "path": "rtl/reorder_buffer.sv",
+      "artifact": "project/rtl/reorder_buffer.sv",
+      "bytes": 15423,
+      "sha256": "e63bab289bd72104335fbbff2f474c470748e13db868d36ad19d664b84153ca6"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "artifact": "project/rtl/rv32i5.sv",
+      "bytes": 25824,
+      "sha256": "c8daad8660f8520c4151cbe862758519bba351d960bb19f10873cb2f8d1bb77f"
+    }
+  ]
+}

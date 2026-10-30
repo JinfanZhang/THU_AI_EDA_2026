@@ -1,0 +1,44 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T124311252478",
+  "attempt": 5,
+  "stage": "compile",
+  "created_at": "2026-10-30T12:57:59+00:00",
+  "hypothesis": "The remaining Icarus Verilog 12 -g2012 compile failure is caused by a dimension-reducing array-slice or indexed packed-array write on the left-hand side, not by the previously fixed whole-array resets. In generated_attempt5.sv the repeated 'Assignment to an entire array or to an array slice is not yet supported' errors around lines 1229-1240, followed by the elab_expr.cc packed_dimensions assertion, are consistent with an expression such as `line[word_sel] <= mem_resp_data` where `line` is declared as a multi-dimensional packed vector like `logic [3:0][31:0]`. Icarus cannot elaborate that selected element as an LHS because it treats it as an array slice and later fails the packed-dimension consistency check. The likely remaining locations are the BTB/BHT table storage in branch_predictor.sv, the cache line data path in dcache.sv, and possibly a small fetch buffer in fetch_unit.sv. The fix must flatten these storage structures to plain packed vectors and use explicit subfield/unrolled per-word writes, while preserving all frozen ports and handshakes.",
+  "confidence": "medium",
+  "files": [
+    "rtl/branch_predictor.sv",
+    "rtl/dcache.sv",
+    "rtl/fetch_unit.sv"
+  ],
+  "symbols": [
+    "btb_target_table",
+    "bht_state_table",
+    "dcache_line_words",
+    "fetch_buffer",
+    "cpu_resp_rdata",
+    "icache_cpu_resp_data"
+  ],
+  "constraints": [
+    "Do not change module names, port names, widths, or valid/ready/squash/epoch handshake semantics.",
+    "Replace whole-array or array-slice LHS assignments with flat packed vectors plus explicit subfield/unrolled per-element assignments; no variable part-selects or dimension-reducing slice writes.",
+    "Keep branch predictor behavior: 16-entry BTB with full PC tag, 16-entry 2-bit BHT reset to 2'b01, JAL/JALR do not update BHT, BTB alias must be a miss.",
+    "Keep dcache refill word installation order: base, base+4, base+8, base+12.",
+    "Keep reset semantics: synchronous active-low reset, all registered bus-valid outputs 0 while rst_n is low.",
+    "Do not use break, classes, dynamic queues, DPI, initial, simulation delays, or Icarus-unsupported aggregate array constructs."
+  ],
+  "verification_targets": [
+    "Icarus Verilog 12 -g2012 compile exits successfully with no 'Assignment to an entire array or to an array slice' and no elab_expr.cc assertion.",
+    "Teacher TB no longer fails at the Compile stage; the generated attempt must elaborate all RTL modules.",
+    "After reset is released, dmem_valid and icache_cpu_req_valid remain 0 until the first legitimate request.",
+    "A standard ECALL retirement still sets halted=1 with exit_code=0 and no speculative halted from a flushed path."
+  ],
+  "rejected_hypotheses": [
+    "Unsupported break statements in issue_queue/reorder_buffer/load_store_unit search loops.",
+    "Unsupported break statements left in rename_unit/branch_predictor/icache.",
+    "Whole-array or array-slice aggregate writes only in dcache/icache/branch_predictor storage arrays.",
+    "Whole-array PRF reset in rtl/prf.sv using an aggregate assignment such as prf_regs <= '0."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt5.json",
+  "report_ref": "tester-05/test_report.json"
+}

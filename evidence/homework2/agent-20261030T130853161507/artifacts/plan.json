@@ -1,0 +1,79 @@
+{
+  "project_name": "rv32i5",
+  "top_module": "rv32i5",
+  "modules": [
+    {
+      "name": "rv32i5",
+      "file": "rtl/rv32i5.sv",
+      "description": "Top-level module instantiating all pipeline stages, caches, predictor, regfile, hazard and forwarding units.",
+      "interfaces": "input clk, input rst_n, output [31:0] imem_addr, input [31:0] imem_rdata, output imem_valid, input imem_ready, output dmem_valid, output dmem_we, output [31:0] dmem_addr, output [31:0] dmem_wdata, output [3:0] dmem_be, input [31:0] dmem_rdata, input dmem_ready, input [4:0] dbg_reg_addr, output [31:0] dbg_reg_data, output halted, output [31:0] exit_code, output [2:0] dbg_features, output dbg_retire_valid, output [31:0] dbg_retire_pc, output [31:0] dbg_retire_insn, output dbg_bp_resolve, output dbg_bp_mispredict, output dbg_ooo_issue, output dbg_ooo_bypass"
+    },
+    {
+      "name": "if_stage",
+      "file": "rtl/if_stage.sv",
+      "description": "Instruction fetch stage, maintains PC, interfaces with icache and branch predictor, handles redirects and stalls.",
+      "interfaces": "input clk, input rst_n, input cpu_resp_valid, input [31:0] cpu_resp_data, input cpu_req_ready, input redirect_valid, input [31:0] redirect_pc, input stall, input pred_pc_valid, input [31:0] pred_pc, input ecall_halt_pending, output cpu_req_valid, output [31:0] cpu_req_addr, output if_id_valid, output [31:0] if_id_pc, output [31:0] if_id_insn, output [1:0] flush_epoch, output [31:0] pc_query"
+    },
+    {
+      "name": "id_stage",
+      "file": "rtl/id_stage.sv",
+      "description": "Instruction decode stage, reads register file, generates control signals and immediate, detects ECALL.",
+      "interfaces": "input clk, input rst_n, input if_id_valid, input [31:0] if_id_pc, input [31:0] if_id_insn, input [1:0] if_id_epoch, input [31:0] read_data1, input [31:0] read_data2, input stall, input flush_id_ex, input redirect_valid, output [4:0] read_addr1, output [4:0] read_addr2, output ecall_halt_pending, output id_ex_valid, output [31:0] id_ex_pc, output [31:0] id_ex_insn, output [31:0] id_ex_rs1_val, output [31:0] id_ex_rs2_val, output [4:0] id_ex_rs1_addr, output [4:0] id_ex_rs2_addr, output [31:0] id_ex_imm, output [4:0] id_ex_rd_addr, output [3:0] id_ex_alu_op, output id_ex_mem_read, output id_ex_mem_write, output id_ex_reg_write, output id_ex_branch, output id_ex_jal, output id_ex_jalr, output id_ex_ecall, output [1:0] id_ex_epoch, output [31:0] id_ex_pc_plus4, output [1:0] id_ex_funct3, output id_ex_opcode"
+    },
+    {
+      "name": "ex_stage",
+      "file": "rtl/ex_stage.sv",
+      "description": "Execute stage, performs ALU operations, resolves branches/jumps, generates redirect and prediction update signals.",
+      "interfaces": "input clk, input rst_n, input id_ex_valid, input [31:0] id_ex_pc, input [31:0] id_ex_insn, input [31:0] id_ex_rs1_val, input [31:0] id_ex_rs2_val, input [4:0] id_ex_rs1_addr, input [4:0] id_ex_rs2_addr, input [31:0] id_ex_imm, input [4:0] id_ex_rd_addr, input [3:0] id_ex_alu_op, input id_ex_mem_read, input id_ex_mem_write, input id_ex_reg_write, input id_ex_branch, input id_ex_jal, input id_ex_jalr, input id_ex_ecall, input [1:0] id_ex_epoch, input [31:0] id_ex_pc_plus4, input [1:0] id_ex_funct3, input id_ex_opcode, input [1:0] forward_a, input [1:0] forward_b, input ex_mem_valid, input ex_mem_reg_write, input [4:0] ex_mem_rd_addr, input [31:0] ex_mem_alu_result, input mem_wb_valid, input mem_wb_reg_write, input [4:0] mem_wb_rd_addr, input [31:0] mem_wb_wb_data, output ex_mem_valid, output [31:0] ex_mem_pc, output [31:0] ex_mem_insn, output [31:0] ex_mem_pc_plus4, output [31:0] ex_mem_alu_result, output [31:0] ex_mem_rs2_val, output [4:0] ex_mem_rd_addr, output ex_mem_reg_write, output"
+    },
+    {
+      "name": "mem_stage",
+      "file": "rtl/mem_stage.sv",
+      "description": "Memory stage, handles load/store with dcache, generates store data and load results.",
+      "interfaces": "input clk, input rst_n, input ex_mem_valid, input [31:0] ex_mem_pc, input [31:0] ex_mem_insn, input [31:0] ex_mem_pc_plus4, input [31:0] ex_mem_alu_result, input [31:0] ex_mem_rs2_val, input [4:0] ex_mem_rd_addr, input ex_mem_reg_write, input ex_mem_mem_read, input ex_mem_mem_write, input ex_mem_ecall, input [1:0] ex_mem_epoch, input cpu_resp_valid, input [31:0] cpu_resp_rdata, input cpu_req_ready, output cpu_req_valid, output cpu_req_we, output [31:0] cpu_req_addr, output [31:0] cpu_req_wdata, output [3:0] cpu_req_be, output mem_wb_valid, output [31:0] mem_wb_pc, output [31:0] mem_wb_insn, output [31:0] mem_wb_pc_plus4, output [31:0] mem_wb_alu_result, output [31:0] mem_wb_load_data, output [4:0] mem_wb_rd_addr, output mem_wb_reg_write, output mem_wb_ecall, output [1:0] mem_wb_epoch, output ex_mem_valid_out, output ex_mem_reg_write_out, output [4:0] ex_mem_rd_addr_out, output [31:0] ex_mem_alu_result_out"
+    },
+    {
+      "name": "wb_stage",
+      "file": "rtl/wb_stage.sv",
+      "description": "Writeback stage, writes register file, handles ECALL retirement and halt.",
+      "interfaces": "input clk, input rst_n, input mem_wb_valid, input [31:0] mem_wb_pc, input [31:0] mem_wb_insn, input [31:0] mem_wb_pc_plus4, input [31:0] mem_wb_alu_result, input [31:0] mem_wb_load_data, input [4:0] mem_wb_rd_addr, input mem_wb_reg_write, input mem_wb_ecall, input [1:0] mem_wb_epoch, output regfile_write_en, output [4:0] regfile_write_addr, output [31:0] regfile_write_data, output mem_wb_valid_out, output mem_wb_reg_write_out, output [4:0] mem_wb_rd_addr_out, output [31:0] mem_wb_wb_data_out, output dbg_retire_valid, output [31:0] dbg_retire_pc, output [31:0] dbg_retire_insn, output halted, output [31:0] exit_code"
+    },
+    {
+      "name": "hazard_unit",
+      "file": "rtl/hazard_unit.sv",
+      "description": "Detects load-use hazards and generates stall signal.",
+      "interfaces": "input id_rs1_addr, input id_rs2_addr, input id_valid, input ex_rd_addr, input ex_reg_write, input ex_mem_read, output stall"
+    },
+    {
+      "name": "forwarding_unit",
+      "file": "rtl/forwarding_unit.sv",
+      "description": "Generates forwarding select signals for EX stage.",
+      "interfaces": "input id_ex_rs1_addr, input id_ex_rs2_addr, input ex_mem_valid, input ex_mem_reg_write, input ex_mem_rd_addr, input mem_wb_valid, input mem_wb_reg_write, input mem_wb_rd_addr, output [1:0] forward_a, output [1:0] forward_b"
+    },
+    {
+      "name": "icache",
+      "file": "rtl/icache.sv",
+      "description": "Instruction cache, direct-mapped, 256B, 16B lines, blocking refill.",
+      "interfaces": "input clk, input rst_n, input cpu_req_valid, input [31:0] cpu_req_addr, output cpu_req_ready, output cpu_resp_valid, output [31:0] cpu_resp_data, input flush, input [1:0] flush_epoch, output mem_req_valid, input mem_req_ready, output [31:0] mem_req_addr, input mem_resp_valid, input [31:0] mem_resp_data"
+    },
+    {
+      "name": "dcache",
+      "file": "rtl/dcache.sv",
+      "description": "Data cache, direct-mapped, 256B, 16B lines, write-through, write-allocate.",
+      "interfaces": "input clk, input rst_n, input cpu_req_valid, input cpu_req_we, input [31:0] cpu_req_addr, input [31:0] cpu_req_wdata, input [3:0] cpu_req_be, output cpu_req_ready, output cpu_resp_valid, output [31:0] cpu_resp_rdata, input flush, input [1:0] flush_epoch, output mem_req_valid, input mem_req_ready, output [31:0] mem_req_addr, output mem_req_we, output [31:0] mem_req_wdata, output [3:0] mem_req_be, input mem_resp_valid, input [31:0] mem_resp_data"
+    },
+    {
+      "name": "branch_predictor",
+      "file": "rtl/branch_predictor.sv",
+      "description": "Dynamic branch predictor with 16-entry BTB and 16-entry 2-bit BHT.",
+      "interfaces": "input clk, input rst_n, input [31:0] pc_query, output pred_pc_valid, output [31:0] pred_pc, input update_valid, input [31:0] update_pc, input update_taken, input [31:0] update_target, input update_is_branch, input update_is_jal, input update_is_jalr, input [1:0] update_epoch"
+    },
+    {
+      "name": "regfile",
+      "file": "rtl/regfile.sv",
+      "description": "32-entry register file with synchronous write and combinational read, including debug read port.",
+      "interfaces": "input clk, input rst_n, input write_en, input [4:0] write_addr, input [31:0] write_data, input [4:0] read_addr1, input [4:0] read_addr2, input [4:0] dbg_reg_addr, output [31:0] read_data1, output [31:0] read_data2, output [31:0] dbg_reg_data"
+    }
+  ],
+  "notes": "The planned structure includes the required 8 base modules plus icache, dcache, branch_predictor, and an auxiliary regfile. All cross-module signals use identical names and widths as specified. The top-level rv32i5 instantiates all modules and connects them directly. The branch_predictor is queried by if_stage and updated by ex_stage. The dcache output cpu_resp_rdata is used by mem_stage. The flush_epoch counter is maintained in if_stage and passed to caches and predictor. Store retirement is handled by mem_stage waiting for dcache response before passing to wb_stage. The wb_stage produces dbg_retire signals and halted/exit_code. The dbg_features is set to 3'b011 in top-level."
+}

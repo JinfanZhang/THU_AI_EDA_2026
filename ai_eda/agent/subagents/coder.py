@@ -130,6 +130,23 @@ class CoderAgent(SubAgent):
                 reasoning=event.get("reasoning"),
                 usage=event.get("usage"),
             )
+        # 参考实现里可能有计划之外的依赖文件（例如 L1 的 alu.sv 被 ex_stage 实例化），
+        # 这些都一并带进项目，否则教师 TB 会报 unknown module。
+        for rel, rtl in reference.items():
+            if rel in files:
+                continue
+            target = safe_project_path(self.runtime.run_dir, rel)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(rtl, encoding="utf-8")
+            files[rel] = rtl
+            event = self.runtime.begin_event(
+                "coder", self.node_type, f"{self.title} · {rel}", "参考依赖"
+            )
+            self.finish(
+                event,
+                "info",
+                response=f"Wrote {rel} (reference dependency, {len(rtl)} chars).",
+            )
         manifest = {
             "files": [
                 {

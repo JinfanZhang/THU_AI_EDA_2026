@@ -1,0 +1,79 @@
+{
+  "project_name": "rv32i5_l3",
+  "top_module": "rv32i5",
+  "modules": [
+    {
+      "name": "rv32i5",
+      "file": "rtl/rv32i5.sv",
+      "description": "顶层模块，连接所有子模块，提供统一高级接口",
+      "interfaces": "input logic clk\ninput logic rst_n\noutput logic [31:0] imem_addr\ninput logic [31:0] imem_rdata\noutput logic imem_valid\ninput logic imem_ready\noutput logic dmem_valid\noutput logic dmem_we\noutput logic [31:0] dmem_addr\noutput logic [31:0] dmem_wdata\noutput logic [3:0] dmem_be\ninput logic [31:0] dmem_rdata\ninput logic dmem_ready\ninput logic [4:0] dbg_reg_addr\noutput logic [31:0] dbg_reg_data\noutput logic halted\noutput logic [31:0] exit_code\noutput logic [2:0] dbg_features\noutput logic dbg_retire_valid\noutput logic [31:0] dbg_retire_pc\noutput logic [31:0] dbg_retire_insn\noutput logic dbg_bp_resolve\noutput logic dbg_bp_mispredict\noutput logic dbg_ooo_issue\noutput logic dbg_ooo_bypass"
+    },
+    {
+      "name": "fetch_unit",
+      "file": "rtl/fetch_unit.sv",
+      "description": "取指单元，负责PC选择、与icache和branch_predictor交互，输出指令到decode",
+      "interfaces": "input logic clk\ninput logic rst_n\noutput logic icache_cpu_req_valid\noutput logic [31:0] icache_cpu_req_addr\ninput logic icache_cpu_req_ready\ninput logic icache_cpu_resp_valid\ninput logic [31:0] icache_cpu_resp_data\noutput logic icache_flush\noutput logic [1:0] icache_flush_epoch\ninput logic rob_epoch [1:0]\ninput logic rob_flush\noutput logic [31:0] branch_pred_pc_query\ninput logic branch_pred_valid\ninput logic branch_pred_taken\ninput logic [31:0] branch_pred_target\ninput logic redirect_valid\ninput logic [31:0] redirect_pc\ninput logic halt_request\noutput logic fetch_valid\noutput logic [31:0] fetch_pc\noutput logic [31:0] fetch_insn\ninput logic decode_ready"
+    },
+    {
+      "name": "decode_unit",
+      "file": "rtl/decode_unit.sv",
+      "description": "译码单元，将指令解码为控制信号和操作数索引",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic fetch_valid\ninput logic [31:0] fetch_pc\ninput logic [31:0] fetch_insn\noutput logic dec_valid\noutput logic [31:0] dec_pc\noutput logic [31:0] dec_insn\noutput logic [4:0] dec_rs1\noutput logic [4:0] dec_rs2\noutput logic [4:0] dec_rd\noutput logic [31:0] dec_imm\noutput logic [3:0] dec_op_type\noutput logic [2:0] dec_func3\noutput logic [6:0] dec_func7\ninput logic ren_ready"
+    },
+    {
+      "name": "rename_unit",
+      "file": "rtl/rename_unit.sv",
+      "description": "寄存器重命名单元，实现RAT、物理寄存器分配、与ROB/IQ接口",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic dec_valid\ninput logic [31:0] dec_pc\ninput logic [31:0] dec_insn\ninput logic [4:0] dec_rs1\ninput logic [4:0] dec_rs2\ninput logic [4:0] dec_rd\ninput logic [31:0] dec_imm\ninput logic [3:0] dec_op_type\ninput logic [2:0] dec_func3\ninput logic [6:0] dec_func7\noutput logic ren_ready\noutput logic iq_dispatch_valid\noutput logic [31:0] iq_dispatch_pc\noutput logic [31:0] iq_dispatch_insn\noutput logic [5:0] iq_dispatch_prs1\noutput logic [5:0] iq_dispatch_prs2\noutput logic [5:0] iq_dispatch_prd\noutput logic [2:0] iq_dispatch_rob_idx\noutput logic [31:0] iq_dispatch_imm\noutput logic [3:0] iq_dispatch_op_type\noutput logic [2:0] iq_dispatch_func3\noutput logic [6:0] iq_dispatch_func7\ninput logic iq_full\noutput logic rob_alloc_req_valid\noutput logic [31:0] rob_alloc_req_pc\noutput logic [31:0] rob_alloc_req_insn\noutput logic [5:0] rob_alloc_req_prd\noutput logic [5:0] rob_alloc_req_old_prd\ninput logic rob_alloc_grant\ninput logic [2:0] rob_alloc_idx\ninput logic "
+    },
+    {
+      "name": "issue_queue",
+      "file": "rtl/issue_queue.sv",
+      "description": "整数发射队列，跟踪源就绪状态，选择指令发射到执行单元",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic iq_dispatch_valid\ninput logic [31:0] iq_dispatch_pc\ninput logic [31:0] iq_dispatch_insn\ninput logic [5:0] iq_dispatch_prs1\ninput logic [5:0] iq_dispatch_prs2\ninput logic [5:0] iq_dispatch_prd\ninput logic [2:0] iq_dispatch_rob_idx\ninput logic [31:0] iq_dispatch_imm\ninput logic [3:0] iq_dispatch_op_type\ninput logic [2:0] iq_dispatch_func3\ninput logic [6:0] iq_dispatch_func7\noutput logic iq_full\noutput logic alu_issue_valid\noutput logic [5:0] alu_issue_prs1\noutput logic [5:0] alu_issue_prs2\noutput logic [5:0] alu_issue_prd\noutput logic [2:0] alu_issue_rob_idx\noutput logic [31:0] alu_issue_imm\noutput logic [3:0] alu_issue_op_type\noutput logic [2:0] alu_issue_func3\noutput logic [6:0] alu_issue_func7\noutput logic [31:0] alu_issue_pc\noutput logic lsu_issue_valid\noutput logic [5:0] lsu_issue_prs1\noutput logic [5:0] lsu_issue_prs2\noutput logic [5:0] lsu_issue_prd\noutput logic [2:0] lsu_issue_rob_idx\noutput logic [31:0] lsu_issue_imm\noutput logic [3:"
+    },
+    {
+      "name": "alu_unit",
+      "file": "rtl/alu_unit.sv",
+      "description": "整数执行单元，执行ALU运算、分支解析和跳转目标计算",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic alu_issue_valid\ninput logic [5:0] alu_issue_prs1\ninput logic [5:0] alu_issue_prs2\ninput logic [5:0] alu_issue_prd\ninput logic [2:0] alu_issue_rob_idx\ninput logic [31:0] alu_issue_imm\ninput logic [3:0] alu_issue_op_type\ninput logic [2:0] alu_issue_func3\ninput logic [6:0] alu_issue_func7\ninput logic [31:0] alu_issue_pc\noutput logic [5:0] prf_read1_addr\ninput logic [31:0] prf_read1_data\noutput logic [5:0] prf_read2_addr\ninput logic [31:0] prf_read2_data\noutput logic prf_write_valid\noutput logic [5:0] prf_write_pr\noutput logic [31:0] prf_write_data\noutput logic rob_complete_valid\noutput logic [2:0] rob_complete_rob_idx\noutput logic [5:0] rob_complete_prd\noutput logic [31:0] rob_complete_data\noutput logic rob_mispredict_valid\noutput logic [31:0] rob_mispredict_pc\noutput logic bp_resolve_valid\noutput logic [31:0] bp_resolve_pc\noutput logic bp_resolve_taken\noutput logic [31:0] bp_resolve_target\noutput logic bp_resolve_is_cond\ninput logic squash_va"
+    },
+    {
+      "name": "load_store_unit",
+      "file": "rtl/load_store_unit.sv",
+      "description": "访存单元，处理load/store，与dcache接口，负责地址计算和数据写回",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic lsu_issue_valid\ninput logic [5:0] lsu_issue_prs1\ninput logic [5:0] lsu_issue_prs2\ninput logic [5:0] lsu_issue_prd\ninput logic [2:0] lsu_issue_rob_idx\ninput logic [31:0] lsu_issue_imm\ninput logic [3:0] lsu_issue_op_type\ninput logic [2:0] lsu_issue_func3\ninput logic [31:0] lsu_issue_pc\noutput logic [5:0] prf_read1_addr\ninput logic [31:0] prf_read1_data\noutput logic [5:0] prf_read2_addr\ninput logic [31:0] prf_read2_data\noutput logic prf_write_valid\noutput logic [5:0] prf_write_pr\noutput logic [31:0] prf_write_data\noutput logic dcache_cpu_req_valid\noutput logic dcache_cpu_req_we\noutput logic [31:0] dcache_cpu_req_addr\noutput logic [31:0] dcache_cpu_req_wdata\noutput logic [3:0] dcache_cpu_req_be\ninput logic dcache_cpu_req_ready\ninput logic dcache_cpu_resp_valid\ninput logic [31:0] dcache_cpu_resp_rdata\noutput logic dcache_flush\noutput logic [1:0] dcache_flush_epoch\ninput logic rob_epoch [1:0]\ninput logic rob_flush\noutput logic rob_complete_valid\n"
+    },
+    {
+      "name": "reorder_buffer",
+      "file": "rtl/reorder_buffer.sv",
+      "description": "重排序缓冲，实现顺序提交、精确恢复、squash和退休事件",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic rob_alloc_req_valid\ninput logic [31:0] rob_alloc_req_pc\ninput logic [31:0] rob_alloc_req_insn\ninput logic [5:0] rob_alloc_req_prd\ninput logic [5:0] rob_alloc_req_old_prd\noutput logic rob_alloc_grant\noutput logic [2:0] rob_alloc_idx\noutput logic rob_full\ninput logic rob_complete_valid_alu\ninput logic [2:0] rob_complete_rob_idx_alu\ninput logic [5:0] rob_complete_prd_alu\ninput logic [31:0] rob_complete_data_alu\ninput logic rob_mispredict_valid\ninput logic [31:0] rob_mispredict_pc\ninput logic rob_complete_valid_lsu\ninput logic [2:0] rob_complete_rob_idx_lsu\ninput logic [5:0] rob_complete_prd_lsu\ninput logic [31:0] rob_complete_data_lsu\noutput logic rob_commit_valid\noutput logic [4:0] rob_commit_arch_reg\noutput logic [5:0] rob_commit_phys_reg\noutput logic [5:0] rob_commit_old_phys_reg\noutput logic rob_restore_valid\noutput logic [2:0] rob_restore_checkpoint_id\noutput logic rob_squash_valid\noutput logic [2:0] rob_squash_rob_idx\noutput logic rob_re"
+    },
+    {
+      "name": "prf",
+      "file": "rtl/prf.sv",
+      "description": "物理寄存器堆，提供寄存器的存储和读写端口",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic [5:0] alu_read1_addr\noutput logic [31:0] alu_read1_data\ninput logic [5:0] alu_read2_addr\noutput logic [31:0] alu_read2_data\ninput logic [5:0] lsu_read1_addr\noutput logic [31:0] lsu_read1_data\ninput logic [5:0] lsu_read2_addr\noutput logic [31:0] lsu_read2_data\ninput logic write_valid_alu\ninput logic [5:0] write_pr_alu\ninput logic [31:0] write_data_alu\ninput logic write_valid_lsu\ninput logic [5:0] write_pr_lsu\ninput logic [31:0] write_data_lsu"
+    },
+    {
+      "name": "icache",
+      "file": "rtl/icache.sv",
+      "description": "指令缓存，256B直接映射，16-byte line，支持refill",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic cpu_req_valid\ninput logic [31:0] cpu_req_addr\noutput logic cpu_req_ready\noutput logic cpu_resp_valid\noutput logic [31:0] cpu_resp_data\ninput logic flush\ninput logic [1:0] flush_epoch\noutput logic mem_req_valid\ninput logic mem_req_ready\noutput logic [31:0] mem_req_addr\ninput logic mem_resp_valid\ninput logic [31:0] mem_resp_data"
+    },
+    {
+      "name": "dcache",
+      "file": "rtl/dcache.sv",
+      "description": "数据缓存，256B直接映射，write-through+write-allocate",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic cpu_req_valid\ninput logic cpu_req_we\ninput logic [31:0] cpu_req_addr\ninput logic [31:0] cpu_req_wdata\ninput logic [3:0] cpu_req_be\noutput logic cpu_req_ready\noutput logic cpu_resp_valid\noutput logic [31:0] cpu_resp_rdata\ninput logic flush\ninput logic [1:0] flush_epoch\noutput logic mem_req_valid\ninput logic mem_req_ready\noutput logic [31:0] mem_req_addr\noutput logic mem_req_we\noutput logic [31:0] mem_req_wdata\noutput logic [3:0] mem_req_be\ninput logic mem_resp_valid\ninput logic [31:0] mem_resp_data"
+    },
+    {
+      "name": "branch_predictor",
+      "file": "rtl/branch_predictor.sv",
+      "description": "动态分支预测器，包含16-entry BTB和16-entry 2-bit BHT",
+      "interfaces": "input logic clk\ninput logic rst_n\ninput logic [31:0] pc_query\noutput logic pred_valid\noutput logic pred_taken\noutput logic [31:0] pred_target\ninput logic resolve_valid\ninput logic [31:0] resolve_pc\ninput logic resolve_taken\ninput logic [31:0] resolve_target\ninput logic resolve_is_cond"
+    }
+  ],
+  "notes": "All module interfaces are frozen as listed. Cross-module signals use identical names and widths. Top-level dbg_features is hardwired to 3'b111 for L3. Epoch/flush signals originate from ROB and are forwarded via fetch_unit and LSU to caches. dbg_ooo_issue from issue_queue, dbg_ooo_bypass from ROB with dmem_waiting input from LSU."
+}

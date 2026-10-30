@@ -1,0 +1,57 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 8,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:21:20+00:00",
+  "hypothesis": "The front-end has regressed in the opposite direction from the earlier hold-request fixes: it now registers/lags the instruction-memory response (and an outstanding fetch handshake) even though the teacher memory model is single-cycle — imem_rdata is valid in the SAME cycle as imem_addr/imem_valid, with imem_ready normally 1. Because if_stage/top capture imem_rdata one cycle after issuing the address (or keep imem_valid/PC frozen for a 'handshake' that never needs waiting), every fetch pairs address N with the data of N-4, so the retired word at a PC never equals program[PC]. The decode therefore sees systematically wrong instruction words, the real ECALL word never decodes as ECALL, halted is never set, and the TB keeps comparing mismatched retired PC/instruction pairs — the repeated 't13_dft — retire PC/instruction does not match the loaded program' lines — until the 20 s simulation budget expires (simulation_timeout). The mechanism is a same-cycle response consumption bug (extra register stage / over-held request), not a missing hold: IF must drive imem_addr from PC combinationally, use imem_rdata in that same cycle when imem_ready, and only advance PC next cycle.",
+  "confidence": "medium",
+  "files": [
+    "rtl/if_stage.sv",
+    "rtl/rv32i5.sv",
+    "rtl/mem_stage.sv"
+  ],
+  "symbols": [
+    "imem_addr",
+    "imem_valid",
+    "imem_ready",
+    "imem_rdata",
+    "pc",
+    "if_id_valid",
+    "if_id_pc",
+    "if_id_instr",
+    "halted",
+    "dbg_retire_valid",
+    "dmem_valid",
+    "dmem_ready"
+  ],
+  "constraints": [
+    "Top-level port names, widths and directions of rv32i5 must stay exactly as frozen (clk, rst_n, imem_*, dmem_*, dbg_*, halted, exit_code).",
+    "Single-cycle memory contract: imem/dmem respond in the same cycle as the request; do NOT add extra wait states or register the response data path; when imem_ready/dmem_ready is high the data is consumed in that cycle.",
+    "imem_addr[1:0] must be 00 at all times (reset and run); imem_addr=0 during reset and before the first fetch edge.",
+    "Synchronous active-low reset: every registered output including imem_valid and dmem_valid is 0 during and immediately after reset, no bus access while rst_n is low.",
+    "Only WB may set halted/exit_code, and only for a committed ECALL word 32'h0000_0073; once halted, freeze PC fetch and stop pulsing dbg_retire_valid.",
+    "PC update priority: reset > control-transfer redirect > ECALL halt freeze > load-use stall > PC+4.",
+    "Pipeline valid/bubble semantics: stalls/flushes clear valid bits, never clear a valid instruction data word; if_id PC and instruction must always be captured from the same fetch cycle (same imem_addr).",
+    "Do not modify teacher TB, spec, or scoring scripts; do not hardcode test vectors or gate behavior on test names/addresses.",
+    "Icarus -g2012 constraints: no variable part-selects, no constant-index array writes in always_*, no break/continue, no whole-array assignment."
+  ],
+  "verification_targets": [
+    "t13_dft: for every retired instruction, dbg_retire_pc must equal the program PC and dbg_retire_insn must equal the program word at that PC, starting from the very first retire (no first-retire mismatch).",
+    "The repeated 'retire PC/instruction does not match the loaded program' output must disappear entirely; each retired PC checked once and matching.",
+    "halted must assert with the correct exit_code when the program ECALL (32'h0000_0073) reaches WB; dbg_retire_valid stops pulsing after halt.",
+    "Full teacher simulation completes within the 20 s budget (no simulation_timeout) for t13_dft and the other benchmarks.",
+    "dbg_retire_pc[1:0] == 0 on every retire, and imem_addr[1:0] == 0 every cycle.",
+    "For a load whose data is available same-cycle (dmem_ready=1), dmem_rdata must be captured into the load result in that same cycle (correct architectural value in the following retire), with dmem_valid/addr/wdata/be held stable only if dmem_"
+  ],
+  "rejected_hypotheses": [
+    "Attempt 7 — missing registered, stable fetch request: the opposite fix (holding imem_valid/PC until an imem_ready beat) was applied and the design still fails with instruction/PC mismatches; the single-cycle model does not require a hold ha",
+    "Attempt 6 — dmem request not registered/held causing 'D-memory request changed before ready': no such protocol check appears in the current log tail; the current failure is retire PC/instruction mismatch, indicating a fetch/instruction-capt",
+    "Attempt 5 — front-end deadlock frozen at imem_addr=0x0c with retired=0: the current run does retire and progresses, so the deadlock framing is no longer the active mechanism.",
+    "Attempt 4 — if_stage ignoring branch_predictor outputs / dmem-wait overlap: not the dominant cause now, since the failure is not prediction accuracy but every retired word mismatching the program.",
+    "Attempt 3 — BHT never written / single resolution strobe missing: BHT training cannot explain a mismatch on the very first retires, which occur before any branch resolution.",
+    "Attempt 2 — branch_predictor port-name elaboration error / constant-select array writes: these were addressed and the design elaborates and runs long enough to produce repeated retire checks."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt8.json",
+  "report_ref": "tester-08/test_report.json"
+}

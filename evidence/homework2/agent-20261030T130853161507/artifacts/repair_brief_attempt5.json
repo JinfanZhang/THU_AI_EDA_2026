@@ -1,0 +1,46 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 5,
+  "stage": "simulation",
+  "created_at": "2026-10-30T13:25:15+00:00",
+  "hypothesis": "The remaining failure is not caused by missing flush after misprediction (the previous fix already applied the younger-stage squash). Instead, the EX stage's misprediction detection for JALR target changes is incomplete or incorrectly compares the actual next PC against the predicted next PC. When the BTB returns a stale JALR target and the actual target changes, EX computes the correct target but fails to assert redirect/mispredict (e.g., the comparator ignores the target low-bit alignment, compares only PC[31:2], or treats JALR as a taken/untaken branch without verifying target equality). As a result, the wrong-path instruction stream continues and is retired, producing the repeated 'retire PC/instruction does not match the loaded program' checks. The program never reaches its terminating ECALL, causing the 20s simulation_timeout.",
+  "confidence": "medium",
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/branch_predictor.sv"
+  ],
+  "symbols": [
+    "actual_next_pc",
+    "pred_pc",
+    "mispredict",
+    "redirect_pc",
+    "jalr_taken",
+    "update_target",
+    "update_valid",
+    "BTB tag",
+    "BTB target"
+  ],
+  "constraints": [
+    "Do not change the top-level port names or the frozen stage interface names.",
+    "Mispredict detection must compare the full 32-bit actual next PC with the predicted next PC, including the JALR target's bit0 forced to 0 (actual = (rs1+imm)&32'hffff_fffe).",
+    "On a JALR misprediction, redirect in the same cycle and squash the two younger pipeline stages; do not delay redirect or suppress it based on branch direction alone.",
+    "Do not modify the teacher TB, spec, or scoring scripts.",
+    "Do not hardcode test vectors or use feature/debug flags.",
+    "Preserve load-use stall, forwarding, reset, and halt semantics as specified."
+  ],
+  "verification_targets": [
+    "simulation_timeout must clear: the testbench completes within 20s with a normal halt.",
+    "The repeated 't13_dft — retire PC/instruction does not match the loaded program' checks must disappear; dbg_retire_pc/insn for every retired instruction must match the loaded program exactly.",
+    "For the L2 main training case, exactly 132 instructions retire and no more than 8 mispredictions are reported.",
+    "When a JALR target changes from the BTB-predicted target, the processor must assert dbg_bp_mispredict once, redirect PC to the new target, and update BTB without retiring wrong-path instructions.",
+    "BTB/BHT update rules remain correct: JAL/JALR do not update BHT; speculative/squashed control transfers do not write BTB/BHT."
+  ],
+  "rejected_hypotheses": [
+    "Missing flush of younger pipeline stages after any misprediction (attempt 4) — already applied but the same mismatch and timeout persist.",
+    "Compile errors from duplicated port names, packed structs, or unsupported array selects (attempts 1-3) — compilation now succeeds but simulation still fails.",
+    "Generic BTB/BHT table initialization or alias handling without a target-change detection path — the evidence points specifically to target equality checking, not just table state."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt5.json",
+  "report_ref": "tester-05/test_report.json"
+}

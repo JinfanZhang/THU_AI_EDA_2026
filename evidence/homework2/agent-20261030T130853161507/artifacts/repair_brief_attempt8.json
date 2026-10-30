@@ -1,0 +1,47 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 8,
+  "stage": "simulation",
+  "created_at": "2026-10-30T13:33:21+00:00",
+  "hypothesis": "The simulation timeout and repeated retire PC/instruction mismatches are caused by the forwarding unit failing to supply EX-stage operands from the two valid forwarding paths (EX/MEM and MEM/WB). As a result, a branch/JALR in EX that depends on a register produced by an immediately preceding ALU instruction reads the stale register-file value instead of the forwarded result. The branch consequently resolves in the wrong direction or computes a wrong JALR target, redirecting the front-end to a wrong program path. Wrong-path instructions then retire and the expected ECALL/halt never occurs, producing the t13_dft mismatches until the 20 s timeout.",
+  "confidence": "medium",
+  "files": [
+    "rtl/forwarding_unit.sv"
+  ],
+  "symbols": [
+    "forward_a",
+    "forward_b",
+    "ex_mem_valid",
+    "ex_mem_reg_write",
+    "ex_mem_rd_addr",
+    "mem_wb_valid",
+    "mem_wb_reg_write",
+    "mem_wb_rd_addr",
+    "id_ex_rs1_addr",
+    "id_ex_rs2_addr"
+  ],
+  "constraints": [
+    "Do not change the forwarding_unit port names or bit widths.",
+    "Implement both EX/MEM -> EX and MEM/WB -> EX forwarding paths.",
+    "EX/MEM forwarding must have priority over MEM/WB when both match the same source register.",
+    "Never assert forwarding to x0 when the destination register is x0 or when the source register field is x0.",
+    "Do not forward from invalid pipeline stages; forward only when the corresponding valid and reg_write signals are true.",
+    "Do not alter pipeline stage boundaries, stall, flush, or reset semantics."
+  ],
+  "verification_targets": [
+    "simulation_timeout must clear and the RTL must halt via ECALL with halted=1.",
+    "No t13_dft retire PC/instruction mismatch messages should appear.",
+    "A dependent branch/JALR immediately following an ALU instruction must resolve using the forwarded value, not the stale register-file value.",
+    "The expected 132 retired instructions and 64 control-transfer resolutions should complete without extra wrong-path retire events."
+  ],
+  "rejected_hypotheses": [
+    "Icarus-unsupported packed-struct/array constructs in branch_predictor and dcache were the root cause.",
+    "Missing flush of younger pipeline stages after misprediction was the root cause.",
+    "Incomplete JALR target-change comparison in EX was the root cause.",
+    "WB retire_valid being a level instead of a one-cycle pulse was the root cause.",
+    "IF stage using pred_pc without gating on pred_pc_valid was the root cause."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt8.json",
+  "report_ref": "tester-08/test_report.json"
+}

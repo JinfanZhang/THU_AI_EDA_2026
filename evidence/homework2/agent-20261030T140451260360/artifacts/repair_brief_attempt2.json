@@ -1,0 +1,51 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 2,
+  "stage": "compile",
+  "created_at": "2026-10-30T14:10:11+00:00",
+  "hypothesis": "The current blocker is an elaboration/port-binding error, not a datapath or capability-bit bug: rtl/rv32i5.sv instantiates u_branch_predictor with the stale local names lookup_pc / pred_taken / pred_target, while the frozen interface of module branch_predictor (per the planner-frozen contract used by the rest of the design) exposes bp_lookup_pc / bp_pred_taken / bp_pred_target / bp_btb_hit. Icarus therefore aborts with 'port ... is not a port of u_branch_predictor' during elaboration, so no simulation or capability probe ever runs. Secondary risk: the repeated 'sorry: constant selects in always_* processes are not currently supported (all bits will be included)' messages at two source locations indicate array-element writes indexed by a constant inside an always block (typically a register file or a cache/BTB array); these are non-fatal today but silently degrade to 'all bits included', which can corrupt state once the design does elaborate, so those indexed writes should be converted to explicit per-element always_ff blocks or packed vectors. Fix mechanism: rewrite the branch-predictor instantiation in the top level to bind the contract port names (and connect bp_btb_hit, using it in the IF-local prediction mux), leaving branch_predictor.sv's frozen ports untouched, then remove constant-index array writes.",
+  "confidence": "high",
+  "files": [
+    "rtl/rv32i5.sv",
+    "rtl/branch_predictor.sv"
+  ],
+  "symbols": [
+    "u_branch_predictor",
+    "bp_lookup_pc",
+    "bp_pred_taken",
+    "bp_pred_target",
+    "bp_btb_hit",
+    "lookup_pc",
+    "pred_taken",
+    "pred_target",
+    "bp_update_valid",
+    "bp_update_pc",
+    "bp_update_target"
+  ],
+  "constraints": [
+    "Do not change the rv32i5 top-level port list, order, widths or names; it must match the §A interface exactly (clk, rst_n, imem_*, dmem_*, dbg_*, halted, exit_code).",
+    "Keep module branch_predictor's frozen port names/widths (clk, rst_n, bp_lookup_pc, bp_pred_taken, bp_pred_target, bp_btb_hit, bp_update_valid, bp_update_pc, bp_update_target, bp_update_is_cond, bp_update_actual_taken, bp_update_is_jalr); do",
+    "Connect every branch_predictor port explicitly in the instantiation; no implicit-.* reliance and no dangling outputs (bp_btb_hit must be used or explicitly left unconnected intentionally).",
+    "Synchronous active-low reset semantics preserved: BTB entries invalid and BHT counters weak-not-taken 01 after reset; no bus access (imem_valid/dmem_valid) issued while rst_n is low.",
+    "Halt semantics unchanged: only WB may set halted/exit_code on a committed ECALL; once halted PC fetch freezes.",
+    "Prediction/update timing unchanged: use old BTB/BHT content for the current-cycle lookup, apply this-cycle resolve updates afterwards, never letting the write change the already-issued prediction; squashed younger control transfers must not",
+    "Do not modify the teacher TB, the spec, or scoring scripts; do not hardcode test vectors or fake dbg_features/dbg_bp_* values.",
+    "Keep the design Icarus -g2012 clean: no variable part-selects in procedural loops, no whole-array assignments, no constant-indexed array writes inside always_comb/always_ff (replace with explicit per-element always_ff or packed vectors)."
+  ],
+  "verification_targets": [
+    "Compile/elaboration stage must pass with 0 errors: no 'port is not a port of u_branch_predictor' and no 'error(s) during elaboration'.",
+    "All previously green functional/scoring checks must stay green after the rewire: performance_correctness suite with 0 failures, exit_code = 0x820, dmem_reads = 64, and the full ~241386-check set passing.",
+    "With -g2012, no remaining 'constant selects in always_* processes are not currently supported' messages from the generated file (currently at two source locations, one emitting 8 times).",
+    "dbg_bp_resolve / dbg_bp_mispredict must remain 0 for wrongly-predicted-path control transfers and increment only for control transfers that actually reach the resolve point and are not squashed by an older mispredict.",
+    "dbg_features must be a constant (reset-independent) value that correctly declares the L2 capability set; after compile passes, the capability probe must report the L2 encoding instead of level=1 features=1."
+  ],
+  "rejected_hypotheses": [
+    "Attempt-1 hypothesis (only the dbg_features/capability constant in rtl/rv32i5.sv is wrong) cannot be the current blocker: the run never reaches simulation because elaboration fails on the branch_predictor instantiation. The feature-bit issu",
+    "A datapath bug in EX forwarding / load-use stall / branch resolution: not supported by evidence — those suites were green in the previous run and no simulation was executed in this run.",
+    "The teacher TB or the frozen branch_predictor interface is wrong: rejected; the contract explicitly freezes bp_* names, so the stale names live in the top-level instantiation.",
+    "Renaming branch_predictor's ports to lookup_pc/pred_taken/pred_target to satisfy the top level: rejected; that would break the frozen planner interface used by if_stage and by the L2 spec requirement that branch_predictor be truly connected"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt2.json",
+  "report_ref": "tester-02/test_report.json"
+}

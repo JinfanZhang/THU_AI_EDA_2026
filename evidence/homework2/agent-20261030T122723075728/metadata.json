@@ -1,0 +1,19 @@
+{
+  "run_id": "agent-20261030T122723075728",
+  "project_id": "rv32i5_ooo",
+  "project_title": "RV32I · L3 OoO",
+  "agent_name": "EDA Auto-Design Agent",
+  "status": "failed",
+  "started_at": "2026-10-30T12:27:23.076+00:00",
+  "finished_at": "2026-10-30T12:30:11.764+00:00",
+  "attempts": 1,
+  "max_repair_attempts": 8,
+  "max_tester_attempts": 9,
+  "model": "deepseek-flash",
+  "base_url": "https://api.deepseek.com",
+  "temperature": null,
+  "max_tokens": 60000,
+  "thinking": true,
+  "reasoning_effort": "low",
+  "generation_mode": "agent_workflow_with_optional_retry"
+}

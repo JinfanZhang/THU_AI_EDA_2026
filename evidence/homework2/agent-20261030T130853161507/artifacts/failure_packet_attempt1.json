@@ -1,0 +1,116 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 1,
+  "project_id": "rv32i5_predict",
+  "created_at": "2026-10-30T13:14:47+00:00",
+  "stage": "compile",
+  "stage_label": "Compile",
+  "passed": false,
+  "summary": "Teacher TB failed (Compile).",
+  "failed_checks": [],
+  "failed_check_count": 0,
+  "first_deviation": null,
+  "failing_suites": [],
+  "log_excerpt": "/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:919: error: 'ex_mem_valid' has already been declared in this scope.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:911:      : It was declared here as a net.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:923: error: 'ex_mem_alu_result' has already been declared in this scope.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:914:      : It was declared here as a net.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:925: error: 'ex_mem_rd_addr' has already been declared in this scope.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:913:      : It was declared here as a net.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:926: error: 'ex_mem_reg_write' has already been declared in this scope.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:912:      : It was declared here as a net.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:2009: syntax error\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt1.sv:2009: error: Malformed statement",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/branch_predictor.sv",
+      "bytes": 4890,
+      "sha256": "1ea64aa0e4c2eb16"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "bytes": 10178,
+      "sha256": "1dc5332523544cb4"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "bytes": 8858,
+      "sha256": "18e5f7a6f2045870"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "bytes": 1554,
+      "sha256": "cadfef0f15700714"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "bytes": 553,
+      "sha256": "df7e3af42f1284d5"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "bytes": 5111,
+      "sha256": "d07f764d060c7e4f"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "bytes": 8674,
+      "sha256": "116cd491fcd63f2e"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "bytes": 3520,
+      "sha256": "e4d9b0dca3c58dae"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "bytes": 8498,
+      "sha256": "1c521e99abbca8ca"
+    },
+    {
+      "path": "rtl/regfile.sv",
+      "bytes": 1372,
+      "sha256": "e3058f50b24ffcf0"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 21083,
+      "sha256": "64c3d1ae0751c12c"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "bytes": 2898,
+      "sha256": "febf61b7efaceb40"
+    }
+  ],
+  "references": {
+    "report": "tester-01/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest.json"
+  }
+}

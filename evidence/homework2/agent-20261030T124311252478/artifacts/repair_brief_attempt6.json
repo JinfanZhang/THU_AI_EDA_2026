@@ -1,0 +1,42 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T124311252478",
+  "attempt": 6,
+  "stage": "compile",
+  "created_at": "2026-10-30T13:00:12+00:00",
+  "hypothesis": "The Icarus Verilog 12 abort is caused by packed multi-dimensional vector writes in the ROB/IQ/LSQ queue arrays, e.g. `rob_data[wr_idx] <= ...` where `rob_data` is declared as `logic [ENTRIES-1:0][PAYLOAD_W-1:0]`. Icarus interprets indexing into a packed dimension as an entire-array or array-slice write, producing the repeated 12-line 'Assignment to an entire array or to an array slice is not yet supported' errors around lines 1184-1195. The following elab_expr.cc packed_dimensions assertion is triggered while elaborating that incompatible indexed LHS. Previous repairs removed similar array-slice writes from dcache/icache/branch_predictor/prf, but the same unsupported style remains in reorder-buffer writeback/allocation, issue-queue capture/wakeup, and load-store-queue payload shifting. The fix must flatten these queue payloads to one-dimensional packed vectors or scalar unpacked arrays with explicit per-entry write enables, avoiding any base-index LHS on a packed multi-dimensional vector.",
+  "confidence": "medium",
+  "files": [
+    "rtl/reorder_buffer.sv",
+    "rtl/issue_queue.sv",
+    "rtl/load_store_unit.sv"
+  ],
+  "symbols": [
+    "rob_data",
+    "rob_entry",
+    "iq_entry",
+    "lsq_entry",
+    "alloc_idx",
+    "complete_idx"
+  ],
+  "constraints": [
+    "Do not change any frozen module ports or valid/ready/squash/epoch handshake semantics",
+    "Preserve synchronous reset behavior: all registered state and outputs must be 0 while rst_n is low",
+    "Use only Icarus Verilog 12 -g2012 supported constructs: no whole-array or array-slice writes, no packed multi-dimensional vector indexed LHS, no variable part-selects",
+    "Maintain one retirement per cycle and ROB/IQ program-order semantics"
+  ],
+  "verification_targets": [
+    "Compile and elaborate the full design with Icarus Verilog 12 (-g2012) with zero 'Assignment to an entire array or to an array slice' errors",
+    "No elab_expr.cc packed_dimensions assertion or core dump during elaboration",
+    "Teacher TB compile reaches simulation rather than aborting at compile/elaboration"
+  ],
+  "rejected_hypotheses": [
+    "Break statements in issue_queue/reorder_buffer/load_store_unit loops",
+    "Break statements in rename_unit/branch_predictor/icache loops",
+    "Whole-array or array-slice writes in dcache/icache/branch_predictor",
+    "Physical register file reset whole-array assignment",
+    "Packed multi-dimensional LHS writes in branch_predictor/dcache/fetch_unit"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt6.json",
+  "report_ref": "tester-06/test_report.json"
+}

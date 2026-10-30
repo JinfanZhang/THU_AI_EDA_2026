@@ -1,0 +1,73 @@
+{
+  "project_name": "rv32i5_l3_ooo",
+  "top_module": "rv32i5",
+  "modules": [
+    {
+      "name": "rv32i5",
+      "file": "rtl/rv32i5.sv",
+      "description": "顶层：例化并连线 fetch_unit / branch_predictor / icache / dcache / rename_unit / issue_queue / reorder_buffer / load_store_unit / alu / prf；输出 dbg_features=3'b111 常量；把 icache/dcache 的 mem_* 端口连到 imem_*/dmem_*；把 IQ 与 LSU 的读口连到 PRF 读口、ALU 结果连到 ROB 完成口与 PRF 写口；dbg_reg_data 由 rename_unit.dbg_prd 驱动 PRF 调试读口得到；rst_n=0 或 halted=1 时组合屏蔽 dbg_ooo_issue/dbg_ooo_bypass。",
+      "interfaces": "input logic clk; input logic rst_n; output logic [31:0] imem_addr; input logic [31:0] imem_rdata; output logic imem_valid; input logic imem_ready; output logic dmem_valid; output logic dmem_we; output logic [31:0] dmem_addr; output logic [31:0] dmem_wdata; output logic [3:0] dmem_be; input logic [31:0] dmem_rdata; input logic dmem_ready; input logic [4:0] dbg_reg_addr; output logic [31:0] dbg_reg_data; output logic halted; output logic [31:0] exit_code; output logic [2:0] dbg_features; output logic dbg_retire_valid; output logic [31:0] dbg_retire_pc; output logic [31:0] dbg_retire_insn; output logic dbg_bp_resolve; output logic dbg_bp_mispredict; output logic dbg_ooo_issue; output logic dbg_ooo_bypass"
+    },
+    {
+      "name": "icache",
+      "file": "rtl/icache.sv",
+      "description": "256B 直接映射 I-Cache（16 line x 16B，tag=addr[31:8]，index=addr[7:4]，word=addr[3:2]）；4 个外部字 refill 全部装好才置 valid；cpu 请求保持到 cpu_req_ready；命中后下一拍单周期 cpu_resp_valid；flush 取消尚未被接受的 cpu 请求并丢弃在途 refill（不置 valid）；idle 表示无在途 cpu 操作与 refill。",
+      "interfaces": "input logic clk; input logic rst_n; input logic cpu_req_valid; input logic [31:0] cpu_req_addr; output logic cpu_req_ready; output logic cpu_resp_valid; output logic [31:0] cpu_resp_data; input logic flush; input logic [1:0] flush_epoch; output logic mem_req_valid; output logic [31:0] mem_req_addr; input logic mem_req_ready; input logic mem_resp_valid; input logic [31:0] mem_resp_data; output logic idle"
+    },
+    {
+      "name": "dcache",
+      "file": "rtl/dcache.sv",
+      "description": "256B 直接映射 D-Cache（16 line x 16B，write-through + write-allocate，blocking miss）；load 命中下一拍返回 cpu_resp_valid+cpu_resp_rdata，miss 先 refill 再返回；store 命中按 be 更新行并发一次外部 write-through（保留原始 addr[1:0]），accept 后下一拍返回一次响应；store miss 先 refill 再合并 lane 再 write-through；cpu_req_ready 在空闲时为 1，被接受的请求必然产生恰好一次 cpu_resp_valid；idle 表示无在途 cpu 操作；dmem_* 侧信号保持稳定直到 mem_req_ready。",
+      "interfaces": "input logic clk; input logic rst_n; input logic cpu_req_valid; input logic cpu_req_we; input logic [31:0] cpu_req_addr; input logic [31:0] cpu_req_wdata; input logic [3:0] cpu_req_be; output logic cpu_req_ready; output logic cpu_resp_valid; output logic [31:0] cpu_resp_rdata; input logic flush; input logic [1:0] flush_epoch; output logic mem_req_valid; output logic mem_req_we; output logic [31:0] mem_req_addr; output logic [31:0] mem_req_wdata; output logic [3:0] mem_req_be; input logic mem_req_ready; input logic mem_resp_valid; input logic [31:0] mem_resp_data; output logic idle"
+    },
+    {
+      "name": "branch_predictor",
+      "file": "rtl/branch_predictor.sv",
+      "description": "16 项直接映射 BTB（index=pc[5:2]，含 valid/tag/target）+ 16 项 2-bit 饱和计数器 BHT（复位 01）；组合给出 predict_npc：BTB 命中且（无条件或 BHT 预测 taken）取 BTB target，否则 pc+4；update_valid 时按实际方向饱和更新 BHT（仅条件分支）并写 BTB。",
+      "interfaces": "input logic clk; input logic rst_n; input logic predict_req_valid; input logic [31:0] predict_pc; output logic [31:0] predict_npc; output logic predict_hit; output logic predict_taken; input logic update_valid; input logic [31:0] update_pc; input logic update_is_cond; input logic update_taken; input logic [31:0] update_target; input logic flush"
+    },
+    {
+      "name": "fetch_unit",
+      "file": "rtl/fetch_unit.sv",
+      "description": "维护 PC 与 IF/ID 单条寄存器；向 icache 发请求并在响应拍锁存指令，用 branch_predictor 的 predict_npc 作为下一 PC；redirect_valid 时改 PC，flush_all 时丢弃在途请求并写 valid=0；halt_pending 或 halted 时不再发新请求、if_valid 拉低；PC[1:0] 恒 00。预测元数据 pred_npc/pred_valid 随 IF/ID 送到 rename_unit。",
+      "interfaces": "input logic clk; input logic rst_n; input logic halt_pending; input logic halted; input logic flush_all; input logic [1:0] flush_epoch; input logic redirect_valid; input logic [31:0] redirect_pc; output logic ic_req_valid; output logic [31:0] ic_req_addr; input logic ic_req_ready; input logic ic_resp_valid; input logic [31:0] ic_resp_data; output logic ic_flush; output logic [1:0] ic_flush_epoch; output logic bp_req_valid; output logic [31:0] bp_pc; input logic [31:0] bp_npc; input logic bp_hit; output logic if_valid; input logic if_ready; output logic [31:0] if_pc; output logic [31:0] if_insn; output logic [31:0] if_pred_npc; output logic if_pred_valid"
+    },
+    {
+      "name": "rename_unit",
+      "file": "rtl/rename_unit.sv",
+      "description": "译码 + 寄存器重命名 + 分派。内含 32 项 speculative RAT（6-bit PR）、committed RAT、40 位 ready 表、free-list；PR0 为 x0 永久 ready 恒 0；初始 PR1..PR31=x1..x31，free list=PR32..PR39；维护 4 个 checkpoint（保存 RAT+free 状态，restore_valid/restore_ckpt 恢复，恢复时清被回收 PR 的 ready 位；提交释放的 old_prd 要并入所有在飞 checkpoint 的 free 状态）。原子分派：rob_disp_valid 需 rob_disp_ready 且（ALU 类需 iq_disp_ready，访存类需 lsq_disp_ready，ECALL 只需 ROB）。分派 ECALL 时置 halt_pending 并停后续取指/分派；任意 restore_valid 清 halt_pending。halt_pending 置位当拍输出 halt_enter 单周期脉冲。",
+      "interfaces": "input logic clk; input logic rst_n; input logic if_valid; output logic if_ready; input logic [31:0] if_pc; input logic [31:0] if_insn; input logic [31:0] if_pred_npc; input logic if_pred_valid; output logic rob_disp_valid; input logic rob_disp_ready; output logic [31:0] disp_pc; output logic [31:0] disp_insn; output logic [5:0] disp_prd; output logic [5:0] disp_old_prd; output logic disp_has_dest; output logic [4:0] disp_arch_rd; output logic disp_is_load; output logic disp_is_store; output logic disp_is_ctrl; output logic disp_is_cond; output logic disp_is_ecall; output logic disp_is_ckpt_owner; output logic [1:0] disp_ckpt_id; output logic [31:0] disp_pred_npc; output logic disp_pred_valid; input logic [2:0] disp_rob_idx; output logic iq_disp_valid; input logic iq_disp_ready; output logic [3:0] disp_alu_op; output logic [2:0] disp_br_funct3; output logic [31:0] disp_imm; output logic [5:0] disp_prs1; output logic [5:0] disp_prs2; output logic disp_prs1_ready; output logic disp_prs2_r"
+    },
+    {
+      "name": "issue_queue",
+      "file": "rtl/issue_queue.sv",
+      "description": "8 项整数发射队列，按 age 选最老且两个源 PR 均 ready 的项单发射给整数执行通路；分派时锁存 disp_prs1_ready/disp_prs2_ready，issue 当拍对相同 prd 做内部唤醒，lsu_wb_valid/lsu_wb_prd 做外部唤醒；squash_valid 时按 squash_mask[rob_idx] 清除项；iq_disp_ready 在有空项时为 1。",
+      "interfaces": "input logic clk; input logic rst_n; input logic iq_disp_valid; output logic iq_disp_ready; input logic [31:0] disp_pc; input logic [31:0] disp_alu_op; input logic [2:0] disp_br_funct3; input logic [31:0] disp_imm; input logic [5:0] disp_prs1; input logic [5:0] disp_prs2; input logic disp_prs1_ready; input logic disp_prs2_ready; input logic disp_use_rs1; input logic disp_use_rs2; input logic [5:0] disp_prd; input logic disp_has_dest; input logic [2:0] disp_rob_idx; output logic issue_valid; input logic issue_ready; output logic [3:0] issue_alu_op; output logic [2:0] issue_br_funct3; output logic [31:0] issue_imm; output logic [31:0] issue_pc; output logic [5:0] issue_prs1; output logic [5:0] issue_prs2; output logic [5:0] issue_prd; output logic issue_has_dest; output logic [2:0] issue_rob_idx; input logic lsu_wb_valid; input logic [5:0] lsu_wb_prd; input logic squash_valid; input logic [7:0] squash_mask"
+    },
+    {
+      "name": "reorder_buffer",
+      "file": "rtl/reorder_buffer.sv",
+      "description": "8 项 ROB，程序顺序提交，每拍最多 retire 一条。记录 pc/insn/prd/old_prd/arch_rd/is_store/is_ctrl/is_cond/is_ecall/ckpt_id/pred_npc/complete；提交条件：head 有效且 complete（store 的 complete 即 write-through 已接受）。提交时输出 commit_* 给 rename，并对 is_ecall 产生一次 dbg_retire_valid 并按 A.0 在下一沿置 halted/exit_code（exit_code 取自提交过程中锁存的 x10）。ex_valid/ex_npc 在 is_ctrl 项上解析：与 pred_npc 比较产生 dbg_bp_resolve/dbg_bp_mispredict、bp_update_* 预测器训练、flush_all/flush_epoch 递增、redirect_*、squash_mask（比该 rob_idx 更年轻的全部有效项）、restore_valid/restore_ckpt=该项 ckpt_i",
+      "interfaces": "input logic clk; input logic rst_n; input logic rob_disp_valid; output logic rob_disp_ready; input logic [31:0] disp_pc; input logic [31:0] disp_insn; input logic [5:0] disp_prd; input logic [5:0] disp_old_prd; input logic disp_has_dest; input logic [4:0] disp_arch_rd; input logic disp_is_load; input logic disp_is_store; input logic disp_is_ctrl; input logic disp_is_cond; input logic disp_is_ecall; input logic disp_is_ckpt_owner; input logic [1:0] disp_ckpt_id; input logic [31:0] disp_pred_npc; output logic [2:0] disp_rob_idx; input logic ex_valid; input logic [2:0] ex_rob_idx; input logic [31:0] ex_result; input logic [31:0] ex_npc; input logic lsu_wb_valid; input logic [2:0] lsu_wb_rob_idx; input logic [31:0] lsu_wb_data; output logic commit_valid; output logic [4:0] commit_arch_rd; output logic [5:0] commit_prd; output logic commit_has_dest; output logic commit_old_prd_valid; output logic [5:0] commit_old_prd; output logic redirect_valid; output logic [31:0] redirect_pc; output logi"
+    },
+    {
+      "name": "load_store_unit",
+      "file": "rtl/load_store_unit.sv",
+      "description": "4 项 load/store 队列，程序序单发射到 D-Cache。队头项两个操作数 ready 且（load 任意；store 需 rob_head==rob_idx 且 rob_head_valid）时拉高 dc_req_*；load 收到 dc_resp_valid 后按 funct3/addr[1:0] 做字节/半字选择与符号/零扩展，产生 wb_valid/wb_data 并唤醒依赖者；store 收到 dc_resp_valid（write-through 已接受）后产生 wb_valid 完成 ROB 项，自身无写回。dc_req_* 保持到 dc_req_ready。squash_valid 时按 squash_mask[rob_idx] 清除项；dwail 在 load 请求 dmem_valid=1&&dmem_ready=0 期间为 1，与 alu_issue_valid 同拍产生 dbg_ooo_bypass_evt。idle 表示队列无在途 dcache 操作。",
+      "interfaces": "input logic clk; input logic rst_n; input logic lsq_disp_valid; output logic lsq_disp_ready; input logic [31:0] disp_imm; input logic [5:0] disp_prs1; input logic [5:0] disp_prs2; input logic disp_prs1_ready; input logic disp_prs2_ready; input logic [5:0] disp_prd; input logic disp_has_dest; input logic disp_is_store; input logic [2:0] disp_mem_funct3; input logic [2:0] disp_rob_idx; output logic [5:0] op_rs1_pr; output logic [5:0] op_rs2_pr; input logic [31:0] op_rs1_val; input logic [31:0] op_rs2_val; input logic lsu_wb_valid; input logic [5:0] lsu_wb_prd; input logic ex_wakeup_valid; input logic [5:0] ex_wakeup_prd; input logic [2:0] rob_head; input logic rob_head_valid; input logic alu_issue_valid; output logic wb_valid; output logic [2:0] wb_rob_idx; output logic [5:0] wb_prd; output logic wb_has_dest; output logic [31:0] wb_data; output logic dc_req_valid; output logic dc_req_we; output logic [31:0] dc_req_addr; output logic [31:0] dc_req_wdata; output logic [3:0] dc_req_be; inpu"
+    },
+    {
+      "name": "alu",
+      "file": "rtl/alu.sv",
+      "description": "组合整数执行单元：按 alu_op 计算 ADD/SUB/SLL/SLT/SLTU/XOR/SRL/SRA/OR/AND/LUI/AUIPC/PC+4/PASS；按 br_funct3 计算 BrE/BrNE/BrLT/BrGE/BrLTU/BrGEU 得到 br_taken；同时给出 br_target（BRANCH/JAL 为 pc+imm，JALR 为 (a+imm)&~1）。",
+      "interfaces": "input logic [3:0] alu_op; input logic [31:0] a; input logic [31:0] b; input logic [31:0] imm; input logic [31:0] pc; input logic [2:0] br_funct3; output logic [31:0] result; output logic br_taken; output logic [31:0] br_target"
+    },
+    {
+      "name": "prf",
+      "file": "rtl/prf.sv",
+      "description": "40 x 32 物理寄存器堆，4 个组合读口（raddr1/raddr2 给整数执行通路，raddr3/raddr4 给 LSU）+ 1 个调试组合读口 + 1 个同步写口；PR0 恒为 0，任何对 index 0 的写被丢弃；同步复位把所有项清零。",
+      "interfaces": "input logic clk; input logic rst_n; input logic [5:0] raddr1; output logic [31:0] rdata1; input logic [5:0] raddr2; output logic [31:0] rdata2; input logic [5:0] raddr3; output logic [31:0] rdata3; input logic [5:0] raddr4; output logic [31:0] rdata4; input logic [5:0] dbg_addr; output logic [31:0] dbg_data; input logic we; input logic [5:0] waddr; input logic [31:0] wdata"
+    }
+  ],
+  "notes": "时钟 clk、同步低有效复位 rst_n。物理寄存器 6-bit 索引（0..39，PR0=x0），ROB 索引 3-bit（8 项），IQ 索引 3-bit（8 项），LSQ 4 项，checkpoint 2-bit（4 个）。alu_op 编码统一：0=ADD,1=SUB,2=SLL,3=SLT,4=SLTU,5=XOR,6=SRL,7=SRA,8=OR,9=AND,10=LUI,11=AUIPC,12=PC4,13=PASS,14=BRANCH,15=JAL_JALR。指令类别路由：ALU/LUI/AUIPC/JAL/JALR/分支 -> issue_queue；load/store -> load_store_unit；ECALL 只进 ROB 不进 IQ/LSQ（因此不产生 dbg_ooo_issue）。原子分派：rob_disp_valid 只有在 rob_disp_ready 且对应队列 ready 时才拉高，保证 ROB 与 IQ/LSQ 同拍接受。唤醒：整数结果在 issue 当拍广播（ex_wakeup_valid/ex_wakeup_prd，次拍可读 PRF），load 结果在 LSU 完成拍用 lsu_wb_valid/lsu_wb_prd 广播；rename 的 ready 表与 IQ/LSU 的 ready 位同步更新。roar：ROB 是唯一的 retire 与 squash 源，squash_mask[rob_idx] 广播给 IQ/LSQ/ROB 自身；rename 用 restore_valid/restore_ckpt 恢复 RAT 与 free-list（采用 head 指针回退 + 提交释放 PR 并入所有在飞 checkpoint free 状态的方案），保证连续两个在飞分支误预测可恢复，且更老已提交 PR 不泄漏/不重复回收。flush_epoch 由 ROB 维护（复位 0，redirect 或 halt_enter 时 +1），flush_all=redirect_valid|halt_enter，驱动 fetch/icache/dcache 的 flush 与 flush_epoch；icache 丢弃未接受请求与在途 refill，dcache 对已被 cpu 接受的请求仍保证恰好一次 cpu_resp_valid，由 LSU 用 squash_mask 丢弃被冲刷项的结果（store 只在 ROB head 才发总线，因此不会被冲刷）。halted 只在 ECALL 到 ROB head、所有更老 store 的 write-through 已接受（complete）、lsu_idle 与 ic_idle 均成立时置位：提交沿出 dbg_retire_valid 且 halted/exit_code 仍为 0，下一沿 halted=1、exit_code=x10；halted=1 后所有 valid 与能力事件为 0，imem_addr/架构寄存器/exit_code 保持稳定。exit_code 由 ROB 在提交写 x10 的指令时锁存其结果得到。dbg_reg_data = PRF 的 dbg_data（dbg_addr 由 rename_unit.dbg_prd 给出 committed map 查表结果），x0 恒 0。dbg_ooo_issue=(iq_disp_valid&iq_disp_ready)|(lsq_disp_valid&lsq_disp_ready)；dbg_ooo_bypass 由 LSU 的 dwait 与 alu_issue_valid 同拍产生；两者在 rst_n=0 或 halted=1 时由顶层屏蔽为 0。仅使用可综合 SystemVerilog 子集，不使用 include/package/import/initial/延时。"
+}

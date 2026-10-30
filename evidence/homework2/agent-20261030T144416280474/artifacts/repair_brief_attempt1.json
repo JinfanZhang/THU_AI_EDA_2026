@@ -1,0 +1,53 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T144416280474",
+  "attempt": 1,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:46:36+00:00",
+  "hypothesis": "The design is still an L1 core: rtl/rv32i5.sv drives dbg_features with the L1 constant (3'b001), and no BTB/BHT dynamic branch predictor exists (the suite reports feature count 1, and bench_ooo_overlap64 shows branches=0/mispredicts=0 with no prediction activity). The capability check compares the declared/verified level against the expected L2 level and fails at the very first read of dbg_features, so every other L1 correctness/performance check passes (33748/33748) while capability fails. The fix is to make dbg_features the constant 3'b011 (L2) and actually implement the L2 predictor — 16-entry direct-mapped BTB (index PC[5:2], tag PC[31:6], valid/tag/target/type, all invalid after reset) plus 16-entry 2-bit BHT (index PC[5:2], reset to 2'b01), predict at IF from the OLD entry, compare the actual next PC in EX, flush younger valid entries and redirect on mismatch, and update BTB/BHT only for control transfers that actually reach resolve, driving dbg_bp_resolve/dbg_bp_mispredict from real resolution events. Simply changing the constant without the predictor, or toggling the debug port artificially, is not acceptable — the level must be genuinely verified by the trainer.",
+  "confidence": "high",
+  "files": [
+    "rtl/rv32i5.sv",
+    "rtl/branch_predictor.sv",
+    "rtl/ex_stage.sv"
+  ],
+  "symbols": [
+    "dbg_features",
+    "dbg_bp_resolve",
+    "dbg_bp_mispredict",
+    "bpu_pred_valid",
+    "bpu_pred_next_pc",
+    "if_id_pred_valid",
+    "if_id_pred_next_pc",
+    "id_ex_pred_valid",
+    "id_ex_pred_next_pc",
+    "ex_redirect_valid",
+    "ex_redirect_pc",
+    "btb_valid"
+  ],
+  "constraints": [
+    "Top-level port list and names of rv32i5 must stay exactly as specified (imem_*/dmem_*/dbg_*/halted/exit_code); only internal wiring and the dbg_features constant may change.",
+    "dbg_features must be the constant 3'b011, valid from time 0, never toggled dynamically or driven from test-dependent logic.",
+    "Do not fake dbg_bp_resolve / dbg_bp_mispredict: they may only pulse when a control transfer actually reaches EX resolve and is not killed by an older mispredict; squashed younger transfers must not update BTB/BHT.",
+    "Prediction for the current cycle must be produced from the OLD BTB/BHT entry before applying this cycle's resolve write (same-cycle lookup vs write ordering).",
+    "On mispredict, flush all younger valid entries (IF/ID, ID/EX), cancel their architectural writeback/store/ECALL, and redirect PC; a correctly predicted taken branch must not flush again.",
+    "BTB allocation policy: conditional branches allocate only on BTB miss AND actually-taken; not-taken conditionals never allocate; JAL/JALR allocate/update on first resolve or target change; correctly predicted transfers still update BHT.",
+    "Preserve L1 behavior: I/D caches, handshake (imem_valid/imem_ready, dmem_valid/dmem_ready), single-cycle memory responses, synchronous active-low reset with dmem_valid=0 while rst_n low, load-use single-cycle stall, EX/MEM>MEM/WB forwarding",
+    "Icarus Verilog 12 constraints: no variable part-selects, no array/slice whole assignments, no break/continue/inside/assert, no constant index into arrays inside always_* blocks — use packed vectors and explicit per-element generate/always b",
+    "Do not modify the teacher TB, the spec, or scoring scripts."
+  ],
+  "verification_targets": [
+    "capability check must flip to PASS: AI_EDA_CAPABILITY line must report level=2, declared=2 (or verified=2), expected=2 with no 'expected level 2 but RTL declared level 1' failure.",
+    "dbg_features sampled at time 0 and in every cycle of every test must equal 3'b011 and remain constant.",
+    "All previously passing checks must stay passing: performance_correctness remains 33748/33748, bench_ooo_overlap64 still halts with exit_code=0x00000820 and x10=0x00000820, 0 failures / total check count unchanged.",
+    "The L2 prediction training target must be met: after warm-up, 64 resolved control transfers with at most 8 mispredicts and 132 retired instructions (AI_EDA_PERF mispredicts/branches now nonzero and within budget).",
+    "A correctly predicted taken branch must not cause an extra flush (no duplicate redirect on the same control transfer), and taken control transfers still cost at most 2 bubbles."
+  ],
+  "rejected_hypotheses": [
+    "Pipeline datapath / load-use stall / forwarding bugs: ruled out because all 33748 performance_correctness checks pass, including the 64-load bench_ooo_overlap64 which halts with the correct exit_code and x10.",
+    "Halt/ECALL or reset semantics bug: ruled out — the run reports event=halted with exit_code=0x00000820 exactly matching x10 and check_exit/check_reg both pass.",
+    "Cache or bus handshake bug: ruled out — dmem_reads=64 complete correctly and no timeout/ready failures appear in the log tail."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt1.json",
+  "report_ref": "tester-01/test_report.json"
+}

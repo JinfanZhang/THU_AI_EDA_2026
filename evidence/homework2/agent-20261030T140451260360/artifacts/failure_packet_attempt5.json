@@ -1,0 +1,121 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 5,
+  "project_id": "rv32i5_predict",
+  "created_at": "2026-10-30T14:16:31+00:00",
+  "stage": "simulation",
+  "stage_label": "Simulation",
+  "passed": false,
+  "summary": "Teacher TB failed (Simulation); failed checks: simulation_timeout.",
+  "failed_checks": [
+    {
+      "name": "simulation_timeout",
+      "detail": "教师 TB 仿真超过 20 s，RTL 可能未停机、死循环或握手无法完成。"
+    }
+  ],
+  "failed_check_count": 1,
+  "first_deviation": null,
+  "failing_suites": [],
+  "log_excerpt": "=0x00000073_got=0x00000000_FAIL\nCHECK: ooo_load_overlap_rename — x17 期望 0x00000002 得到 0x00000000\nAI_EDA_TRACE|cycle=1163579|test=ooo_load_overlap_rename|event=check_reg|halted=0|exit_code=0|detail=x17_exp=0x00000002_got=0x00000000_FAIL\nCHECK: ooo_load_overlap_rename — x18 期望 0x00000075 得到 0x00000000\nAI_EDA_TRACE|cycle=1163579|test=ooo_load_overlap_rename|event=check_reg|halted=0|exit_code=0|detail=x18_exp=0x00000075_got=0x00000000_FAIL\nCHECK: ooo_load_overlap_rename — DMEM[0x00000304] 期望 0x00000075 得到 0xa5a5a5a5\nAI_EDA_TRACE|cycle=1163579|test=ooo_load_overlap_rename|event=check_mem|halted=0|exit_code=0|detail=addr=0x00000304_exp=0x00000075_got=0xa5a5a5a5_FAIL\nCHECK: ooo_load_overlap_rename — missing issue evidence\nCHECK: ooo_load_overlap_rename — no independent younger ALU execution while older load waits for external memory\nCHECK: ooo_load_overlap_rename — retired count expected 21 got 0\nAI_EDA_TRACE|cycle=1163579|test=ooo_load_overlap_rename|event=test_end|halted=0|exit_code=0|detail=checks=96008_failures=8_cycles=32000_ok=0\nAI_EDA_SUITE|name=ooo|passed=0|skipped=0|checks=96008\nAI_EDA_TRACE|cycle=1163582|test=bench_crc32_64bytes|event=load_program|halted=0|exit_code=0|detail=instrs=19\nAI_EDA_TRACE|cycle=1163582|test=bench_crc32_64bytes|event=test_start|halted=0|exit_code=0|detail=instrs=19\nAI_EDA_TRACE|cycle=1163582|test=bench_crc32_64bytes|event=reset_release|halted=0|exit_code=0|detail=rst_n=1\nCHECK: bench_crc32_64bytes — 等待 halted 超时（20000 周期），imem_addr=0x0000000c\nAI_EDA_TRACE|cycle=1483582|test=bench_crc32_64bytes|event=timeout|halted=0|exit_code=0|detail=max_cycles=20000_pc=0x0000000c\nAI_EDA_TRACE|cycle=1483582|test=bench_crc32_64bytes|event=test_end|halted=0|exit_code=0|detail=checks=960001_failures=1_cycles=320000_ok=0\nAI_EDA_TRACE|cycle=1483585|test=bench_array_sum64|event=load_program|halted=0|exit_code=0|detail=instrs=9\nAI_EDA_TRACE|cycle=1483585|test=bench_array_sum64|event=test_start|halted=0|exit_code=0|detail=instrs=9\nAI_EDA_TRACE|cycle=1483585|test=bench_array_sum64|event=reset_release|halted=0|exit_code=0|detail=rst_n=1\nCHECK: bench_array_sum64 — 等待 halted 超时（5000 周期），imem_addr=0x0000000c\nAI_EDA_TRACE|cycle=1563585|test=bench_array_sum64|event=timeout|halted=0|exit_code=0|detail=max_cycles=5000_pc=0x0000000c\nAI_EDA_TRACE|cycle=1563585|test=bench_array_sum64|event=test_end|halted=0|exit_code=0|detail=checks=240001_failures=1_cycles=80000_ok=0\nAI_EDA_TRACE|cycle=1563588|test=bench_branch_predict64|event=load_program|halted=0|exit_code=0|de",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/alu.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/alu.sv",
+      "bytes": 1261,
+      "sha256": "19e256ac0b6fff77"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "bytes": 5015,
+      "sha256": "1b86b8b69a4276b5"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "bytes": 9358,
+      "sha256": "f694d7d37680536a"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "bytes": 7062,
+      "sha256": "3ed17573c850398c"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "bytes": 1502,
+      "sha256": "9fe07f2535cec6b1"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "bytes": 1588,
+      "sha256": "86d5381257123d1e"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "bytes": 5779,
+      "sha256": "9ab0c09553caced2"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "bytes": 11083,
+      "sha256": "81fbb620147bb378"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "bytes": 4155,
+      "sha256": "73b600e4a17aead5"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "bytes": 7812,
+      "sha256": "8e8965c9309a8f01"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 20549,
+      "sha256": "6e50c36397a33168"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "bytes": 1460,
+      "sha256": "4de473ce471fe351"
+    }
+  ],
+  "references": {
+    "report": "tester-05/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest_attempt4.json"
+  }
+}

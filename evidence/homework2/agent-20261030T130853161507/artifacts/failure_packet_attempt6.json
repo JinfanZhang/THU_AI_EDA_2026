@@ -1,0 +1,121 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 6,
+  "project_id": "rv32i5_predict",
+  "created_at": "2026-10-30T13:27:01+00:00",
+  "stage": "simulation",
+  "stage_label": "Simulation",
+  "passed": false,
+  "summary": "Teacher TB failed (Simulation); failed checks: simulation_timeout.",
+  "failed_checks": [
+    {
+      "name": "simulation_timeout",
+      "detail": "教师 TB 仿真超过 20 s，RTL 可能未停机、死循环或握手无法完成。"
+    }
+  ],
+  "failed_check_count": 1,
+  "first_deviation": null,
+  "failing_suites": [],
+  "log_excerpt": "3_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/instruction does not match the loaded program\nCHECK: t13_dft — retire PC/",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/branch_predictor.sv",
+      "bytes": 43349,
+      "sha256": "2c06a3a8267958a4"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "bytes": 34078,
+      "sha256": "8cdc72d30f846c11"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "bytes": 9652,
+      "sha256": "bbc14130dc7f1fd3"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "bytes": 1554,
+      "sha256": "cadfef0f15700714"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "bytes": 553,
+      "sha256": "df7e3af42f1284d5"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "bytes": 5111,
+      "sha256": "d07f764d060c7e4f"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "bytes": 8674,
+      "sha256": "116cd491fcd63f2e"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "bytes": 4033,
+      "sha256": "7e8e69c9eacb8cde"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "bytes": 8498,
+      "sha256": "1c521e99abbca8ca"
+    },
+    {
+      "path": "rtl/regfile.sv",
+      "bytes": 1372,
+      "sha256": "e3058f50b24ffcf0"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 21099,
+      "sha256": "b183fff9a117a8ff"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "bytes": 2898,
+      "sha256": "febf61b7efaceb40"
+    }
+  ],
+  "references": {
+    "report": "tester-06/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest_attempt5.json"
+  }
+}

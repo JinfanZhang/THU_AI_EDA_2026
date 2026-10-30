@@ -1,0 +1,53 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T142923838903",
+  "attempt": 3,
+  "stage": "compile",
+  "created_at": "2026-10-30T14:35:17+00:00",
+  "hypothesis": "The run now dies at Compile, not at runtime: Icarus emits 'constant selects in always_* processes are not currently supported' at two source regions (repeated 8x and 4x). This is not a functional bug in the pipeline; it is a synthesis-style coding pattern that Icarus 12 rejects. The branch predictor and/or cache modules contain hand-unrolled array element accesses with literal indices inside always_ff/always_comb (e.g. btb_valid[0], btb_tag[k], bht[3], tag_array[0], valid_array[2]) used to work around Icarus's lack of variable part-select/array-slice support, or a 16-way prediction/tag mux written as (index==4'd0)? btb_target[0] : ... with constant selects. Icarus treats those constant selects as unsupported in always_* processes, so elaboration aborts with 2 errors before any simulation. The two error sites correspond most plausibly to (a) the BTB/BHT reset or prediction mux in branch_predictor.sv and (b) the cache tag/valid/data array access in icache.sv or dcache.sv. The fix is structural, not semantic: drive the arrays through packed vectors indexed by a variable, or use generate blocks with one always block per element (genvar is constant per instance, but the element access must not be a literal select inside a shared always). No datapath or predictor-training logic needs to change.",
+  "confidence": "medium",
+  "files": [
+    "rtl/branch_predictor.sv",
+    "rtl/icache.sv",
+    "rtl/dcache.sv"
+  ],
+  "symbols": [
+    "btb_valid",
+    "btb_tag",
+    "btb_target",
+    "btb_type",
+    "bht",
+    "pred_valid",
+    "pred_taken",
+    "pred_target",
+    "tag_array",
+    "valid_array",
+    "data_array",
+    "dirty_array"
+  ],
+  "constraints": [
+    "Do not change any module port list or port width; rv32i5, branch_predictor, icache, dcache interfaces are frozen.",
+    "dbg_features must remain the constant 3'b011 from time 0 and must not be made dynamic or TB-conditional.",
+    "Preserve BTB semantics: 16 direct-mapped entries, index PC[5:2], tag PC[31:6], all entries invalid after reset.",
+    "Preserve BHT semantics: 16 entries of 2-bit saturating counters, index PC[5:2], reset value 2'b01, 00/01=Not Taken, 10/11=Taken.",
+    "Preserve same-cycle lookup-before-write priority: prediction must come from old entry content, then the resolve update is applied.",
+    "Preserve L1 cache behavior and pipeline timing; do not rewrite caches or pipeline stages to fix a compile error.",
+    "Do not modify the teacher TB, the spec, or scoring scripts; do not hardcode test vectors or fake debug/flags.",
+    "Icarus 12 with -g2012: no variable part-selects (vec[8*i +: 8]), no array/slice assignment (mem <= '{default:0}), no break/continue, no inside/assert/class/interface, no $readmemh, no nested unpacked arrays, no constant selects of arrays in"
+  ],
+  "verification_targets": [
+    "Compile stage must report 0 errors and 0 'sorry:' messages from Icarus; elaboration must complete.",
+    "After compile, the capability probe must still read expected level 2 / declared 2 (dbg_features == 3'b011).",
+    "bench_branch_predict64 must see at least 64 (expected >=128) resolved control transfers, and predictor_training must report at most 8 mispredicts after warm-up.",
+    "dbg_bp_resolve and dbg_bp_mispredict must pulse only for control transfers that actually reach resolve and are not killed by an older mispredict.",
+    "Performance line must show 132 retired instructions for the main training case, with halted=1 and exit_code=0x820 preserved."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1: dbg_features hardwired to L1 3'b001 — already applied; the capability gate is no longer the failing check, and the failure is now a compile error before simulation.",
+    "Attempt 2: branch predictor resolve/update path not wired to dbg_bp_resolve/dbg_bp_mispredict — already applied; this would be a runtime resolution-count failure, not a compile/elaboration abort with 'constant selects in always_* processes'",
+    "Hypothesis that the TB or spec is at fault: excluded by rule; the same teacher TB compiles the reference and the error message is a documented Icarus coding restriction on RTL.",
+    "Hypothesis that the design is functionally wrong in the datapath: excluded because the run never reaches simulation; all functional checks are unreachable until elaboration succeeds."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt3.json",
+  "report_ref": "tester-03/test_report.json"
+}

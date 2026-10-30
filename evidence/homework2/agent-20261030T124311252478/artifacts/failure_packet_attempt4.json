@@ -1,0 +1,116 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T124311252478",
+  "attempt": 4,
+  "project_id": "rv32i5_ooo",
+  "created_at": "2026-10-30T12:56:08+00:00",
+  "stage": "compile",
+  "stage_label": "Compile",
+  "passed": false,
+  "summary": "Teacher TB failed (Compile).",
+  "failed_checks": [],
+  "failed_check_count": 0,
+  "first_deviation": null,
+  "failing_suites": [],
+  "log_excerpt": "_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1229: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1230: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1231: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1232: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1233: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1234: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1235: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1236: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1237: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1238: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1239: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1240: sorry: Assignment to an entire array or to an array slice is not yet supported.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T124311252478/artifacts/generated_attempt4.sv:1249: assert: elab_expr.cc:2487: failed assertion base_index.size()+1 == net->packed_dimensions()\nAborted (core dumped)",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/alu_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/decode_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/fetch_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/alu_unit.sv",
+      "bytes": 7579,
+      "sha256": "01c562d65422a791"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "bytes": 4731,
+      "sha256": "3ab47e6a4c5eb06b"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "bytes": 15145,
+      "sha256": "e36e751c147b7aee"
+    },
+    {
+      "path": "rtl/decode_unit.sv",
+      "bytes": 4785,
+      "sha256": "dd04fd0d9b74764d"
+    },
+    {
+      "path": "rtl/fetch_unit.sv",
+      "bytes": 4484,
+      "sha256": "54d1a60b281cb561"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "bytes": 6486,
+      "sha256": "157c2720a0ed7d34"
+    },
+    {
+      "path": "rtl/issue_queue.sv",
+      "bytes": 12882,
+      "sha256": "734f4f949ea347a9"
+    },
+    {
+      "path": "rtl/load_store_unit.sv",
+      "bytes": 7405,
+      "sha256": "fd045ca5f5b4e6db"
+    },
+    {
+      "path": "rtl/prf.sv",
+      "bytes": 1595,
+      "sha256": "0227da85a9604825"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "bytes": 10267,
+      "sha256": "f1bad82311b3d8d0"
+    },
+    {
+      "path": "rtl/reorder_buffer.sv",
+      "bytes": 15423,
+      "sha256": "e63bab289bd72104"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 25824,
+      "sha256": "c8daad8660f8520c"
+    }
+  ],
+  "references": {
+    "report": "tester-04/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest_attempt3.json"
+  }
+}

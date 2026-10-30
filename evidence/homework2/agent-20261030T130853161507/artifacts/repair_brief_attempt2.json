@@ -1,0 +1,33 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 2,
+  "stage": "compile",
+  "created_at": "2026-10-30T13:18:37+00:00",
+  "hypothesis": "The compile failure persists because rtl/branch_predictor.sv contains an Icarus Verilog 12-incompatible SystemVerilog construct near line 79 of the concatenated attempt file. The most likely culprit is a packed struct type combined with an unpacked array (e.g., defining a BTB/BHT entry struct and then declaring an array of 16 such entries), which violates the stated Icarus constraint and produces the observed 'syntax error' / 'Malformed statement'. The previous attempt only renamed duplicated ports in ex_stage and did not touch this file, leaving the unsupported construct unaddressed.",
+  "confidence": "medium",
+  "files": [
+    "rtl/branch_predictor.sv"
+  ],
+  "symbols": [
+    "BTB entry storage",
+    "BHT counter storage",
+    "branch prediction lookup/update logic"
+  ],
+  "constraints": [
+    "Keep module name branch_predictor and all port names, widths, and directions unchanged.",
+    "Do not use packed structs with unpacked arrays, `inside`, `unique case`, `priority`, break/continue, or unpacked array slice assignments.",
+    "Use separate plain logic vectors/registers for each BTB/BHT field and explicit indexing (e.g., reg [31:0] btb_target [0:15]; reg btb_valid [0:15];) instead of struct types.",
+    "BTB/BHT lookup and update behavior must remain functionally identical to the L2 spec: 16-entry direct-mapped BTB, 16-entry 2-bit BHT, same PC[5:2] index, tag comparison, and update rules."
+  ],
+  "verification_targets": [
+    "Icarus Verilog 12 compiles the full design with zero syntax errors and zero 'Malformed statement' errors.",
+    "The generated attempt file no longer reports an error at line 79.",
+    "After compilation succeeds, the processor can fetch and retire at least the first instruction after reset without hangs or invalid memory accesses (if the design reaches simulation)."
+  ],
+  "rejected_hypotheses": [
+    "The previous hypothesis that ex_stage duplicated input/output port names is already applied and is not the current root cause of the line 79 syntax error; rejecting it as insufficient."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt2.json",
+  "report_ref": "tester-02/test_report.json"
+}

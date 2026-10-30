@@ -1,0 +1,52 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T140451260360",
+  "attempt": 3,
+  "stage": "simulation",
+  "created_at": "2026-10-30T14:12:59+00:00",
+  "hypothesis": "The simulation now elaborates and exits correctly (exit_code=0x820, dmem_reads=64), so the prior capability-bit and port-binding blockers are gone. The remaining failures concentrate on the branch-predictor training loop: bench_ooo_overlap64 reports mispredicts=63 exactly equal to branches=63, i.e. the 2-bit BHT never once predicts the taken direction of a fully taken loop, which can only happen if the BHT is never actually written (bp_update_valid never strobed for real resolutions) or the lookup never observes the trained counter. Meanwhile predictor_training reports 'missing branch-resolution evidence' and bench_branch_predict64 counts only 95 dbg_bp_resolve pulses (<128), so the same divergence shows that dbg_bp_resolve/dbg_bp_mispredict and the predictor write port are being driven from sources that are not the single authoritative EX-stage resolution event (or are gated by pred_valid/mispredict/not-squashed conditions). Root mechanism: ex_stage does not emit one clean resolution strobe (with pc/target/is_cond/actual_taken) on every committed branch/JAL/JALR, and rv32i5.sv does not route that strobe both to branch_predictor.bp_update_* and to the dbg_bp_resolve/dbg_bp_mispredict observables; the BHT therefore stays at its 01 reset value and every taken branch is mispredicted, while resolution counting is under-reported. This single plumbing defect explains the three predictor checks and, because the front-end keeps fetching PC+4 on an untrained predictor, it also produce",
+  "confidence": "medium",
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/rv32i5.sv",
+    "rtl/branch_predictor.sv"
+  ],
+  "symbols": [
+    "bp_update_valid",
+    "bp_update_pc",
+    "bp_update_target",
+    "bp_update_is_cond",
+    "bp_update_actual_taken",
+    "bp_update_is_jalr",
+    "dbg_bp_resolve",
+    "dbg_bp_mispredict",
+    "bp_pred_taken",
+    "bp_btb_hit",
+    "id_ex_pred_valid",
+    "id_ex_pred_next_pc"
+  ],
+  "constraints": [
+    "Do not rename or remove any rv32i5 top-level port; dbg_features must remain the same 3-bit constant that currently declares L2/L3 (features=7).",
+    "branch_predictor frozen ports bp_lookup_pc/bp_pred_taken/bp_pred_target/bp_btb_hit/bp_update_* must not change name, width, or direction.",
+    "Keep the read-before-write rule: this cycle's prediction uses the old BHT/BTB content, then the same-cycle resolved branch result updates the tables; a write must not alter the already-issued prediction.",
+    "Only real, non-squashed, older-mispredict-surviving control transfers may pulse dbg_bp_resolve/dbg_bp_mispredict and update the BHT; JAL/JALR resolve counts but must NOT update the BHT direction counter.",
+    "BHT updates only on conditional-branch resolution using actual_taken; index PC[5:2]; reset value weak-not-taken 01; keep bt.hit/tag semantics untouched.",
+    "Do not touch the teacher TB, spec, or scoring scripts, and do not hardcode branch outcomes, addresses, or counts.",
+    "Preserve correct functional results: exit_code=0x820, dmem_reads=64, x10=0x820 must still pass after the change.",
+    "Icarus -g2012 constraints: no variable part-selects, no array-slice assignment, no break/continue, no constant-index writes inside always_comb/always_ff that trigger 'constant selects' warnings."
+  ],
+  "verification_targets": [
+    "bench_ooo_overlap64: mispredicts must drop from 63 to <=8 on the fully-taken training loop (BHT trains to taken).",
+    "bench_ooo_overlap64: branches resolutions counted by dbg_bp_resolve must match the number of committed control transfers in the trace, and the perf block's mispredicts must be far below branches.",
+    "predictor_training: 'missing branch-resolution evidence' must flip to pass, i.e. dbg_bp_resolve pulses on every resolved branch.",
+    "bench_branch_predict64: dbg_bp_resolve count must rise from 95 to >=128.",
+    "Functional regression: bench_ooo_overlap64 still halts with exit_code=0x820 and x10=0x820; dmem_reads=64, dmem_writes=0 unchanged.",
+    "Sanity: for a taken conditional branch after warm-up, bp_pred_taken must be 1 at lookup and dbg_bp_mispredict must be 0; for a not-taken branch after warm-up, bp_pred_taken must be 0."
+  ],
+  "rejected_hypotheses": [
+    "Attempt 1: under-asserted dbg_features/capability bits causing L1 classification — rejected; capability now reports declared=3 features=7, so the feature bits are already set and the failure moved to real predictor behavior.",
+    "Attempt 2: stale port names (lookup_pc/pred_taken/pred_target vs bp_lookup_pc/bp_pred_taken/bp_pred_target) causing elaboration abort plus constant-select array writes — rejected; simulation now elaborates and produces a full trace with cor"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt3.json",
+  "report_ref": "tester-03/test_report.json"
+}

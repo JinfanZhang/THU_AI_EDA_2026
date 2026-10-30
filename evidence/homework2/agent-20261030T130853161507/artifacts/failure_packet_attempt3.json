@@ -1,0 +1,116 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T130853161507",
+  "attempt": 3,
+  "project_id": "rv32i5_predict",
+  "created_at": "2026-10-30T13:18:50+00:00",
+  "stage": "compile",
+  "stage_label": "Compile",
+  "passed": false,
+  "summary": "Teacher TB failed (Compile).",
+  "failed_checks": [],
+  "failed_check_count": 0,
+  "first_deviation": null,
+  "failing_suites": [],
+  "log_excerpt": "attempt3.sv:1351: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:1351: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:1351: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:1351: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:1351: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:1351: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:201: error: A reference to a wire or reg (`index') is not allowed in a constant expression.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:201: error: Array index expressions must be constant here.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:201: error: Unable to elaborate r-value: data_array[index][{wsel, 5'd0}+:'sd32]\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:207: sorry: constant selects in always_* processes are not currently supported (all bits will be included).\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:334: error: A reference to a wire or reg (`index') is not allowed in a constant expression.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:334: error: Array index expressions must be constant here.\n/home/jinfan_zhang/THU_AI_EDA_2026/runs/agent/agent-20261030T130853161507/artifacts/generated_attempt3.sv:334: assert: elab_lval.cc:933: failed assertion rc\nAborted (core dumped)",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/branch_predictor.sv",
+      "bytes": 4902,
+      "sha256": "5e3c50750074c2cb"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "bytes": 10178,
+      "sha256": "1dc5332523544cb4"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "bytes": 8914,
+      "sha256": "065bac51de838534"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "bytes": 1554,
+      "sha256": "cadfef0f15700714"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "bytes": 553,
+      "sha256": "df7e3af42f1284d5"
+    },
+    {
+      "path": "rtl/icache.sv",
+      "bytes": 5111,
+      "sha256": "d07f764d060c7e4f"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "bytes": 8674,
+      "sha256": "116cd491fcd63f2e"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "bytes": 3520,
+      "sha256": "e4d9b0dca3c58dae"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "bytes": 8498,
+      "sha256": "1c521e99abbca8ca"
+    },
+    {
+      "path": "rtl/regfile.sv",
+      "bytes": 1372,
+      "sha256": "e3058f50b24ffcf0"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 21099,
+      "sha256": "b183fff9a117a8ff"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "bytes": 2898,
+      "sha256": "febf61b7efaceb40"
+    }
+  ],
+  "references": {
+    "report": "tester-03/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest_attempt2.json"
+  }
+}

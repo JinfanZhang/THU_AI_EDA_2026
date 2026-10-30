@@ -47,3 +47,16 @@
   - `repair_brief`：`run_id` / `attempt` / `created_at` / `packet_ref` / `report_ref`；
   - `rtl_manifest`：`run_id` / `attempt` / `created_at`，逐文件 `path` / `artifact` / `bytes` / `sha256`。
 - 原始 `test_report.json` 始终作为 artifact 保存，packet 只引用不复制，保证证据可回查。
+
+## 六、L2 换挡（10-30 晚）
+
+- 按用户要求从 L0 换成 L2：L3 试了三次都不行（Planner 截断、iverilog 语法限制、9 轮编译不过），
+  L2 从零生成 9 轮 467k tokens 也停在仿真不停机。
+- 转折点：课程自带 L1 参考实现（`content/agent/skills/rv32i5_l1_reference`，教师 TB 验证过）。
+  把 Coder 的参考实现 fallback 扩展到 L2，让 Agent 从能跑能停机的 L1 起步，再补预测器。
+- 光有参考还不够：第一次参考起步跑了 11 轮、414k tokens，predictor 组始终没实现（base/cache 能过）。
+  把 BTB/BHT 的规格（索引 PC[5:2]、tag PC[31:6]、BHT 复位 01、分配规则、误预测判据、dbg 计数）
+  写成提示注入 Diagnoser/Patch 后，2 次 Tester、95,474 tokens、201.5 s 通过。
+- 期间修了一个自己的 bug：Diagnoser 遇到模型返回非法 JSON 时直接崩，补了两次重试。
+- 诚实记录：L2 是“参考实现 + Agent 改造”，不是从零设计；报告、evidence、本日志三处都写明了。
+- 跑仿真时全程 `nice -n 19 taskset -c 0,1`，只占两个核、最低优先级，避免影响用户打游戏。
