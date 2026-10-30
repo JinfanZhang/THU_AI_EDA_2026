@@ -1,0 +1,63 @@
+{
+  "schema_version": "run_summary/1",
+  "run_id": "agent-20261030T113852691789",
+  "project_id": "rv32i5",
+  "cpu_level": 0,
+  "model": "deepseek-flash",
+  "params": {
+    "temperature": 0.2,
+    "max_tokens": 60000,
+    "thinking": true,
+    "reasoning_effort": "low",
+    "max_calls": 100,
+    "max_repair_attempts": 8,
+    "planner_skill": false
+  },
+  "model_calls": 29,
+  "tokens": {
+    "prompt_tokens": 262105,
+    "completion_tokens": 172945,
+    "total_tokens": 435050
+  },
+  "tester_attempts": 9,
+  "repair_rounds": 8,
+  "wall_clock_seconds": 891.1,
+  "passed": false,
+  "stage": "simulation",
+  "metrics": {
+    "status": "ok",
+    "library": "gscl45nm.lib",
+    "top_module": "rv32i5",
+    "area": 38786.7064,
+    "area_unit": "library area units (gscl45nm)",
+    "power_status": "ok",
+    "power_reason": null,
+    "power_method": "OpenSTA gate-level VCD estimate",
+    "internal_power_w": 0.00686,
+    "switching_power_w": 0.00145,
+    "dynamic_power_w": 0.00831,
+    "leakage_power_w": 0.000186,
+    "total_power_w": 0.0085,
+    "vcd_scope": "tb_power_agent_rv32i5/dut"
+  },
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/forwarding_unit.sv",
+    "rtl/hazard_unit.sv",
+    "rtl/id_stage.sv",
+    "rtl/if_stage.sv",
+    "rtl/mem_stage.sv",
+    "rtl/regfile.sv",
+    "rtl/rv32i5.sv",
+    "rtl/wb_stage.sv"
+  ],
+  "key_artifacts": {
+    "result": "result.json",
+    "events": "events.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest_attempt8.json",
+    "report": "tester-09/test_report.json"
+  },
+  "resumed_from": null
+}

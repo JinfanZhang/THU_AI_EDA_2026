@@ -1,0 +1,46 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 2,
+  "stage": "simulation",
+  "created_at": "2026-10-30T11:44:03+00:00",
+  "hypothesis": "The immediate generator inside id_stage is mis-decoding the instruction's immediate type, so id_ex_imm is wrong for most opcodes. Concretely, I-type immediates lose instr[20]/bit0 and are not sign-extended (t03_alu_imm: expected 0xfffff7ff = -2049, obtained 0x000007fe = 2046, i.e. the low 12 bits with the LSB cleared and zero-extended), and U-type immediates come out as zero (t04_upper: LUI x1,0x12345 expects 0x12345000 but writes 0; AUIPC x6 expects 0x80000000 but writes 0). The same immediate mux feeds B-type and J-type offsets, so branch/jump targets are also wrong; that is why bench_ooo_overlap64 spins with a frozen/non-advancing PC (imem_addr=0x28) until the 6000-cycle timeout and never commits its ECALL, so halted never asserts. Because almost every test program first materialises constants with ADDI/LUI, the corrupted setup values propagate into register-register ALU checks (t02_alu_r: x4 0xb->0x3, x14 0x80000000->0, x24 0xffffffff->0) and into the forwarding check (t05_forward: x2 0xf->0x5 reads the stale pre-correction value), even though the EX ALU and forwarding paths themselves are functionally correct. This is a decode/immediate-formation defect in id_stage, not a spurious EX redirect (round-1 hypothesis was applied and the identical t02/t03/t04/t05 checks still fail).",
+  "confidence": "medium",
+  "files": [
+    "rtl/id_stage.sv"
+  ],
+  "symbols": [
+    "id_ex_imm",
+    "if_id_instr",
+    "id_ex_alu_b_sel",
+    "id_ex_alu_a_sel",
+    "imm_i",
+    "imm_s",
+    "imm_b",
+    "imm_u",
+    "imm_j",
+    "id_ex_alu_op"
+  ],
+  "constraints": [
+    "Do not change any port name, width, or direction of id_stage or of the 8 frozen modules (rv32i5, if_stage, id_stage, ex_stage, mem_stage, wb_stage, hazard_unit, forwarding_unit).",
+    "Keep id_stage purely combinational in its decode/immediate generation; do not add stalls or extra pipeline registers, and keep the single-cycle memory model (no wait states, no registered responses).",
+    "Preserve valid-bit semantics: id_ex_valid must be cleared only for bubbles/flushes/load-use stall, never because of an immediate value.",
+    "Preserve the PC update priority in if_stage/PC logic: reset > redirect > ECALL freeze > load-use stall > PC+4; do not alter this ordering.",
+    "All immediates must be sign-extended from bit 31 where the ISA requires it (I, S, B, J), and U-type must be {instr[31:12], 12'b0}; keep instr[20] (I/S/B bit 0 placement) intact.",
+    "Do not modify the teacher TB, the spec, or scoring scripts, and do not hardcode test vectors or force debug/halt flags.",
+    "Keep forwarding contract intact (EX/MEM priority over MEM/WB, no forward when rd==x0 or source field==x0) and keep dmem_valid = mem_dmem_valid & rst_n & ~halted."
+  ],
+  "verification_targets": [
+    "t03_alu_imm: x3 == 0xfffff7ff (ADDI with -2049 fully sign-extended, bit 0 preserved).",
+    "t04_upper: x1 == 0x12345000 (LUI x1,0x12345) and x6 == 0x80000000 (AUIPC/LUI upper immediate).",
+    "t02_alu_r: x4 == 0x0000000b, x14 == 0x80000000, x18 == 0x00000000, x20 == 0x80000001, x23 == 0x00000001, x24 == 0xffffffff.",
+    "t05_forward: x2 == 0x0000000f (forwarded value, not the stale 0x5).",
+    "bench_ooo_overlap64: halted becomes 1 with exit_code matching x10 before max_cycles=6000, and imem_addr stops advancing only after the ECALL reaches WB."
+  ],
+  "rejected_hypotheses": [
+    "Round-1 hypothesis that ex_redirect fires for non-control ALU instructions and reloads PC from the EX datapath: it was applied, yet the same t02_alu_r/t03_alu_imm/t04_upper/t05_forward register mismatches and the bench_ooo_overlap64 timeout",
+    "Hypothesis that only the forwarding_unit is broken: forwarding cannot explain LUI/AUIPC writing 0 (no source operands) nor the immediate-value error in t03_alu_imm, so it is at most a secondary symptom."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt2.json",
+  "report_ref": "tester-02/test_report.json"
+}

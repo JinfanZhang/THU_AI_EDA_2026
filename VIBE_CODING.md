@@ -36,3 +36,14 @@
 - AES：`done` 必须恰好一拍，且 `done` 后下一拍要能满足背靠背 `start`。
 - Agent：handoff 只能传 artifact 引用，不能复制大文本，否则又会回到「全量上下文」。
 - 工程：`runs/` 与 `.api_key` 已在 `.gitignore` 中；提交前用 `git status` 确认没有密钥、虚拟环境和运行记录被带进去。
+
+## 五、10-30 复跑与追溯字段
+
+- 同一配置（deepseek-flash、thinking low、max_tokens 60000、8 轮修复）复跑一次：`agent-20261030T113852691789`，
+  8 轮修复仍未收敛，消耗 435,050 tokens、891.1 s。同一份代码两次结果差别明显 —— RTL 生成方差比预想大，
+  因此把失败样本也保留在 `evidence/` 里，不挑好看的提交。
+- 按讲义建议，给三类交接 artifact 补上追溯字段：
+  - `failure_packet`：`run_id` / `attempt` / `project_id` / `created_at` / 每个文件的 `bytes` 与 `sha256`；
+  - `repair_brief`：`run_id` / `attempt` / `created_at` / `packet_ref` / `report_ref`；
+  - `rtl_manifest`：`run_id` / `attempt` / `created_at`，逐文件 `path` / `artifact` / `bytes` / `sha256`。
+- 原始 `test_report.json` 始终作为 artifact 保存，packet 只引用不复制，保证证据可回查。

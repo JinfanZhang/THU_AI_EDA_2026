@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -145,7 +146,7 @@ class DiagnoserAgent(SubAgent):
             model_options={"thinking": True},
         )
         payload = extract_json_payload(result.get("answer") or "")
-        brief = self._validate(payload, plan_files, packet)
+        brief = self._validate(payload, plan_files, packet, packet_ref)
 
         brief_ref = self.runtime.write_json_artifact(
             f"repair_brief_attempt{attempt}.json", brief
@@ -177,7 +178,11 @@ class DiagnoserAgent(SubAgent):
         )
 
     def _validate(
-        self, payload: dict[str, Any], plan_files: list[str], packet: dict[str, Any]
+        self,
+        payload: dict[str, Any],
+        plan_files: list[str],
+        packet: dict[str, Any],
+        packet_ref: str,
     ) -> dict[str, Any]:
         hypothesis = str(payload.get("hypothesis") or "").strip()
         if not hypothesis:
@@ -206,8 +211,10 @@ class DiagnoserAgent(SubAgent):
 
         return {
             "schema_version": "repair_brief/1",
+            "run_id": packet.get("run_id"),
             "attempt": packet.get("attempt"),
             "stage": packet.get("stage"),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "hypothesis": hypothesis[:1500],
             "confidence": confidence,
             "files": files[:3],
@@ -215,5 +222,6 @@ class DiagnoserAgent(SubAgent):
             "constraints": clean_list(payload.get("constraints"), 10),
             "verification_targets": clean_list(payload.get("verification_targets"), 10),
             "rejected_hypotheses": clean_list(payload.get("rejected_hypotheses"), 6),
-            "packet_ref": None,
+            "packet_ref": packet_ref,
+            "report_ref": (packet.get("references") or {}).get("report"),
         }

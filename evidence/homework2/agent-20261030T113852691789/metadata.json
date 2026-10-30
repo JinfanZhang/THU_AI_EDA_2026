@@ -1,0 +1,19 @@
+{
+  "run_id": "agent-20261030T113852691789",
+  "project_id": "rv32i5",
+  "project_title": "RV32I · L0 Five-Stage Pipeline",
+  "agent_name": "EDA Auto-Design Agent",
+  "status": "failed",
+  "started_at": "2026-10-30T11:38:52.692+00:00",
+  "finished_at": "2026-10-30T11:54:59.110+00:00",
+  "attempts": 9,
+  "max_repair_attempts": 8,
+  "max_tester_attempts": 9,
+  "model": "deepseek-flash",
+  "base_url": "https://api.deepseek.com",
+  "temperature": null,
+  "max_tokens": 60000,
+  "thinking": true,
+  "reasoning_effort": "low",
+  "generation_mode": "agent_workflow_with_optional_retry"
+}

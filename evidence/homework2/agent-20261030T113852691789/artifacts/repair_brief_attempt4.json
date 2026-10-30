@@ -1,0 +1,49 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 4,
+  "stage": "simulation",
+  "created_at": "2026-10-30T11:47:01+00:00",
+  "hypothesis": "The ALU B-operand select is decoded with inverted/incorrect polarity (or the mux in EX is wired opposite to the intended id_ex_alu_b_sel semantics), so R-type ALU instructions use id_ex_imm (usually zero) instead of id_ex_rs2_data, while I-type/U-type instructions use stale/garbage rs2 data instead of the immediate. This single operand-selection defect explains the majority of mismatches: t05_forward `add x2,x1,x2` becomes x1+0 = 0x5 instead of 0xf; t02 R-type results collapse to the rs1 operand or zero (x4 0xb->0x3 for OR with 0, x18 0->1 for XOR with 0, x14/x20/x24 lose the second operand); t03 ADDI uses a garbage rs2 value instead of the sign-extended immediate, yielding 0x000007fe instead of 0xfffff7ff; t04 LUI/AUIPC use rs2 instead of the U-immediate, yielding 0 for x1/x6. The same wrong B operand also corrupts branch comparison operands and load/store address generation, which is why bench_ooo_overlap64 scans with wrong dmem addresses and never reaches its ECALL, so halted times out. The immediate generator and writeback/regfile paths are not the primary cause because LUI and dependent R-type operations both fail even though they use different immediate/commit paths.",
+  "confidence": "high",
+  "files": [
+    "rtl/id_stage.sv",
+    "rtl/ex_stage.sv"
+  ],
+  "symbols": [
+    "id_ex_alu_b_sel",
+    "id_ex_alu_a_sel",
+    "id_ex_imm",
+    "id_ex_rs2_data",
+    "id_ex_rs1_data",
+    "alu_b",
+    "alu_result",
+    "ex_mem_alu_result",
+    "id_ex_alu_op"
+  ],
+  "constraints": [
+    "Do not change top-level rv32i5 port names or widths.",
+    "Preserve the frozen stage interfaces and valid semantics; bubbles/flushes remain valid-bit clears, not data muxing.",
+    "id_ex_alu_b_sel polarity must be consistent between id_stage decode and ex_stage ALU mux: R-type selects rs2_data, I-type/U-type/LUI/AUIPC/jump/branch/load/store address select the correct immediate.",
+    "Keep forwarding_unit behavior unchanged: EX/MEM -> EX has priority over MEM/WB -> EX, and x0 is never forwarded.",
+    "Do not add stalls beyond load-use; single-cycle imem/dmem response must remain same-cycle.",
+    "Preserve synchronous active-low reset and keep dmem_valid low during reset and after halted.",
+    "Only WB may set halted/exit_code for a committed ECALL; PC fetch freezes after halt."
+  ],
+  "verification_targets": [
+    "t05_forward: x2 must become 0x0000000f.",
+    "t02_alu_r: x4=0x0000000b, x14=0x80000000, x18=0x00000000, x20=0x80000001, x23=0x00000001, x24=0xffffffff.",
+    "t03_alu_imm: x3 must become 0xfffff7ff.",
+    "t04_upper: x1=0x12345000 and x6=0x80000000.",
+    "bench_ooo_overlap64 must assert halted before max_cycles with exit_code=0 and no timeout.",
+    "All previously listed t02_alu_r/t03_alu_imm/t04_upper/t05_forward failed checks must flip to pass, with no new stalls beyond allowed load-use."
+  ],
+  "rejected_hypotheses": [
+    "Round 1: spurious EX redirect for non-control instructions; reject because the same ALU-register and upper-immediate failures persist and the operand-selection defect directly explains them.",
+    "Round 2: immediate generator mis-decoding I-type/U-type immediates; reject because even after immediate generation was addressed, LUI and R-type dependent results still fail in the same pattern, indicating wrong immediate-vs-rs2 selection r",
+    "Round 3: WB-stage/regfile commit-path corruption; reject because the observed wrong values preserve correct destination registers and are explainable by ALU operand selection, including t05_forward which has no writeback-path ambiguity.",
+    "Purely missing forwarding-unit path; reject because t04 LUI/AUIPC have no source-register dependency and still fail, so the common cause is ALU B-operand selection, not only EX/MEM forwarding."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt4.json",
+  "report_ref": "tester-04/test_report.json"
+}

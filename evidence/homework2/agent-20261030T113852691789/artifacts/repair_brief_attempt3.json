@@ -1,0 +1,54 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 3,
+  "stage": "simulation",
+  "created_at": "2026-10-30T11:45:28+00:00",
+  "hypothesis": "The architectural register state is being corrupted at the writeback/register-file boundary rather than by immediate decoding or EX redirection. Every computed value (register-register ALU in t02, ALU-imm in t03, LUI/AUIPC in t04) flows through the same commit path: wb_stage selects the write data, and rv32i5.sv drives regfile.we/waddr/wdata with the destination taken from the mem_wb rd field. If that commit path is mis-wired — the write address comes from the wrong pipeline field (or is offset), the write-enable/data is captured a cycle off, or wb_sel chooses the pre-writeback operand — then each instruction's result is either dropped (target register stays at its reset 0, e.g. t04 x1=0, t04 x6=0, t02 x14/x24=0) or lands in a neighbouring/incorrect register (spurious nonzero where 0 expected, e.g. t02 x18=1, and the partial-looking x4=0xb->0x3, x20=0x80000001->1, x23=1->0 in t02/t03/t05). The same corruption explains the t05_forward mismatch (the forwarded/read source register was never correctly committed, so 0xf reads as stale) and, crucially, the bench_ooo_overlap64 hang: a loop/branch is set up from a register that never received its correct commit value, so the taken-branch condition never clears and the PC is pinned (imem_addr=0x28) until the 6000-cycle timeout, so the ECALL never reaches WB and halted never asserts. This is genuinely different from rounds 1 (spurious EX redirect) and 2 (immediate mis-decode), both of which were applied and left the identical t02/t03/t",
+  "confidence": "medium",
+  "files": [
+    "rtl/rv32i5.sv",
+    "rtl/wb_stage.sv",
+    "rtl/regfile.sv"
+  ],
+  "symbols": [
+    "wb_reg_write",
+    "wb_rd_addr",
+    "wb_wdata",
+    "mem_wb_rd_addr",
+    "ex_mem_rd_addr",
+    "id_ex_rd_addr",
+    "regfile.waddr",
+    "regfile.wdata",
+    "regfile.we",
+    "wb_sel",
+    "dbg_reg_data"
+  ],
+  "constraints": [
+    "All 8 module port lists are FIXED (rv32i5, if_stage, id_stage, ex_stage, mem_stage, wb_stage, hazard_unit, forwarding_unit): do not rename/re-type any external port.",
+    "rv32i5 must keep driving regfile write port from wb_stage only (single write port; we/waddr/wdata), regfile.dbg_addr = dbg_reg_addr and dbg_reg_data = regfile.dbg_data, regfile.x10_data -> wb_stage.x10_data.",
+    "dbg_reg_data must combinationally read the CURRENT architectural register value (x0==0, no forwarding, no pipeline value).",
+    "rd==x0 must be discarded: regfile.we = wb_reg_write && (wb_rd_addr != 5'd0).",
+    "Synchronous active-low reset: all registered outputs 0 during rst_n=0 and before first reset edge; dmem_valid = mem_stage.mem_dmem_valid & rst_n & ~halted; dmem_we gated by dmem_valid.",
+    "Only wb_stage may set halted/exit_code, only for a committed ECALL (halt_pending from hazard_unit); once halted freeze PC/ifetch and retire no new instructions.",
+    "Single-cycle memory model: imem/dmem respond same cycle, no extra wait states or registered response.",
+    "Forwarding: implement EX/MEM->EX (priority) and MEM/WB->EX; never forward when source or destination register is x0.",
+    "Load-use stall exactly one cycle (hold PC, IF/ID, ID/EX; inject bubble), never clear a valid instruction because of a stall; branch/JAL/JALR resolved in EX flushing IF/ID and ID/EX; JALR target = (rs1+imm) & 32'hffff_fffe."
+  ],
+  "verification_targets": [
+    "t02_alu_r: x4==0x0000000b, x14==0x80000000, x18==0x00000000, x20==0x80000001, x23==0x00000001, x24==0xffffffff",
+    "t03_alu_imm: x3==0xfffff7ff",
+    "t04_upper: x1==0x12345000, x6==0x80000000",
+    "t05_forward: x2==0x0000000f",
+    "bench_ooo_overlap64: halted asserts with exit_code=0 within the cycle budget (no 6000-cycle timeout, imem_addr must stop being pinned at 0x28)",
+    "base suite: 0 failures; performance_correctness: 0 failures; all register-value checks flip to their expected values listed in the failing run"
+  ],
+  "rejected_hypotheses": [
+    "Round 1 (spurious EX redirection loading PC from datapath): was applied; the identical t02/t03/t04/t05 register-value checks still fail and the current hang PC is a normal 0x28, not an ALU-result value, so this is not the residual root caus",
+    "Round 2 (id_stage immediate mis-decode only): was applied; t03 x3 still 0x7fe and t04 x1/x6 still 0, so a front-end immediate fix alone does not repair the committed values — the corruption is downstream of the immediate generator (commit/r",
+    "Pure forwarding-unit bug as sole cause: rejected because LUI/AUIPC (t04) write 0 yet do not consume forwarded operands; a single forwarding defect cannot zero out an immediate write, so the shared commit/writeback-and-regfile path is the co",
+    "Halt-pending asserting prematurely (freeze) as root cause: rejected because bench_ooo_overlap64 is actively issuing memory transactions at incrementing addresses (not a frozen fetch), so the stall is a control/data corruption loop, not an e"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt3.json",
+  "report_ref": "tester-03/test_report.json"
+}

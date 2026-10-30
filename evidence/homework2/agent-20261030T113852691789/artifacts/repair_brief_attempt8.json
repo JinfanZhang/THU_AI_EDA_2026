@@ -1,0 +1,58 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 8,
+  "stage": "simulation",
+  "created_at": "2026-10-30T11:54:30+00:00",
+  "hypothesis": "The load-use hazard is being resolved by DISCARDING the dependent instruction instead of holding and replaying it. When a load is in EX (id_ex_mem_read) and a younger instruction in ID consumes its destination, if_stage's stall path drives if_id_valid<=0 (identical to the redirect/flush path), so the dependent instruction that should be held in IF/ID is replaced by a bubble and is never re-fetched (PC had already advanced to dependent+4, so it is permanently lost). Because id_stage has no stall input, the only way the current design injects the EX bubble is by invalidating if_id, which is exactly what destroys the dependent. The result is that the consuming instruction never executes and its target register simply retains its pre-load (stale) value: t07_load_use x3 stays 0 (expected 0x2468acf0), x8 stays 0xde (expected 0), x13 stays 0x1 (expected 0x8001). The same mechanism explains t08_store_fwd being uniformly off by one: the program does `lw x,mem; addi x,x,1; sw x,...`; the addi is the lost load-use dependent, so x keeps its pre-load value (one less than the expected loaded+1) and the store writes that stale, off-by-one value into x7/x8/x9/x11 and DMEM[0x210..0x218] (0xa5a5a5ab vs 0xa5a5a5aa, 0x7ab vs 0x7aa, etc.). This is the deliberate anti-pattern the spec forbids ('never clear a valid instruction because of a stall'); the datapath itself is now correct, which is why bench_ooo_overlap64 passes 1943/1943 with the right exit code and only the two hazard-specific suites f",
+  "confidence": "medium",
+  "files": [
+    "rtl/if_stage.sv",
+    "rtl/id_stage.sv",
+    "rtl/hazard_unit.sv"
+  ],
+  "symbols": [
+    "load_use_stall",
+    "if_id_valid",
+    "if_id_pc",
+    "if_id_pc_plus4",
+    "if_id_instr",
+    "id_ex_valid",
+    "stall",
+    "freeze",
+    "id_ex_mem_read",
+    "id_ex_rd_addr",
+    "id_rs1_used",
+    "id_rs2_used"
+  ],
+  "constraints": [
+    "During load_use_stall: PC must hold, if_id_valid must STAY 1 and if_id_pc/if_id_pc_plus4/if_id_instr must HOLD their current values (the dependent instruction must be preserved, never cleared).",
+    "Exactly one bubble must be injected into ID/EX on the stall cycle (id_ex_valid=0 for that edge); the held dependent must advance into ID/EX on the following cycle. Adding an internal stall input to id_stage (or equivalent replay control) is",
+    "load_use_stall detection must remain: id_ex_valid && id_ex_mem_read && (id_ex_rd_addr!=0) && id_valid && ((id_rs1_used && id_rs1_addr==id_ex_rd_addr) || (id_rs2_used && id_rs2_addr==id_ex_rd_addr)); confirm id_rs2_used is asserted for store",
+    "Store-rs2 data dependency must be resolved either by an extra EX stall or by MEM/WB->EX forwarding of the store data; do not write stale store wdata.",
+    "Control-flow redirect MUST still take priority over stall: on redirect flush both IF/ID and ID/EX; do not hold a valid instruction across a redirect.",
+    "Top-level and per-module port names/widths are frozen (only internal signals may be added); module boundaries unchanged.",
+    "Synchronous active-low reset; dmem_valid = mem_dmem_valid & rst_n & ~halted; once halted freeze PC fetch and stop retiring new instructions.",
+    "Do not touch teacher TB, spec, or scoring scripts; no test-vector hardcoding."
+  ],
+  "verification_targets": [
+    "t07_load_use: x3 == 0x2468acf0",
+    "t07_load_use: x8 == 0x00000000",
+    "t07_load_use: x13 == 0x00008001",
+    "t08_store_fwd: x7 == 0x000007aa, x11 == 0x000007aa",
+    "t08_store_fwd: x8 == 0xa5a5a5aa, x9 == 0xa5a507aa",
+    "t08_store_fwd: DMEM[0x210]==0xa5a5a5aa, DMEM[0x214]==0xa5a507aa, DMEM[0x218]==0x000007aa",
+    "No regression: bench_ooo_overlap64 still halts with exit_code=0x820 (x10=0x820) and performance_correctness passes",
+    "base and performance_correctness suites both pass (16 failures -> 0)"
+  ],
+  "rejected_hypotheses": [
+    "Round 2: id_stage immediate generator mis-decodes I/U-type immediates (already fixed; not the current cause since perf test fully passes now).",
+    "Round 3: register-file / wb commit path corruption (rejected).",
+    "Round 4: ALU B-operand select polarity inverted (rejected).",
+    "Round 5: ID/EX payload capture zeroing rs2 / mis-sliced immediate (rejected).",
+    "Round 6: regfile rs2 read port / top-level rs2 wiring broken (rejected).",
+    "Round 7: ALU-B mux hardwired to immediate so rs2 never selected (rejected). All prior rounds attacked the datapath; the datapath is now correct (perf 1943/0 failures), so the residual failures are hazard-specific: the load-use stall discard"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt8.json",
+  "report_ref": "tester-08/test_report.json"
+}

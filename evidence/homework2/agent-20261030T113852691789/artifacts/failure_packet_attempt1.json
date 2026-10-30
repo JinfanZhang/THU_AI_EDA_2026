@@ -1,0 +1,145 @@
+{
+  "schema_version": "failure_packet/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 1,
+  "project_id": "rv32i5",
+  "created_at": "2026-10-30T11:41:14+00:00",
+  "stage": "simulation",
+  "stage_label": "Simulation",
+  "passed": false,
+  "summary": "Teacher TB failed (Simulation); failed checks: t01_reset, t01_reset, t01_reset, t02_alu_r.",
+  "failed_checks": [
+    {
+      "name": "t01_reset",
+      "detail": "死循环程序没有推进（x1 仍等于初值 0x200）"
+    },
+    {
+      "name": "t01_reset",
+      "detail": "死循环程序没有产生任何 DMEM 写，无法验证复位屏蔽在途 store"
+    },
+    {
+      "name": "t01_reset",
+      "detail": "等待 halted 超时（200 周期），imem_addr=0x00000008"
+    },
+    {
+      "name": "t02_alu_r",
+      "detail": "等待 halted 超时（400 周期），imem_addr=0xfffffffc"
+    },
+    {
+      "name": "t03_alu_imm",
+      "detail": "等待 halted 超时（400 周期），imem_addr=0xfffff804"
+    },
+    {
+      "name": "t04_upper",
+      "detail": "等待 halted 超时（400 周期），imem_addr=0x752d9004"
+    },
+    {
+      "name": "t05_forward",
+      "detail": "等待 halted 超时（400 周期），imem_addr=0x0000001c"
+    },
+    {
+      "name": "t06_load_store",
+      "detail": "等待 halted 超时（500 周期），imem_addr=0x00000108"
+    },
+    {
+      "name": "t06b_neg_imm",
+      "detail": "等待 halted 超时（300 周期），imem_addr=0x00000400"
+    },
+    {
+      "name": "t07_load_use",
+      "detail": "等待 halted 超时（500 周期），imem_addr=0x00000108"
+    }
+  ],
+  "failed_check_count": 21,
+  "first_deviation": null,
+  "failing_suites": [
+    "base",
+    "performance_correctness"
+  ],
+  "log_excerpt": "nt=timeout|halted=0|exit_code=0|detail=max_cycles=20000_pc=0x00000108\nAI_EDA_TRACE|cycle=86206|test=bench_crc32_64bytes|event=test_end|halted=0|exit_code=0|detail=checks=60001_failures=1_cycles=20000_ok=0\nAI_EDA_TRACE|cycle=86209|test=bench_array_sum64|event=load_program|halted=0|exit_code=0|detail=instrs=9\nAI_EDA_TRACE|cycle=86209|test=bench_array_sum64|event=test_start|halted=0|exit_code=0|detail=instrs=9\nAI_EDA_TRACE|cycle=86209|test=bench_array_sum64|event=reset_release|halted=0|exit_code=0|detail=rst_n=1\nCHECK: bench_array_sum64 — 等待 halted 超时（5000 周期），imem_addr=0x00000108\nAI_EDA_TRACE|cycle=91209|test=bench_array_sum64|event=timeout|halted=0|exit_code=0|detail=max_cycles=5000_pc=0x00000108\nAI_EDA_TRACE|cycle=91209|test=bench_array_sum64|event=test_end|halted=0|exit_code=0|detail=checks=15001_failures=1_cycles=5000_ok=0\nAI_EDA_TRACE|cycle=91212|test=bench_branch_predict64|event=load_program|halted=0|exit_code=0|detail=instrs=10\nAI_EDA_TRACE|cycle=91212|test=bench_branch_predict64|event=test_start|halted=0|exit_code=0|detail=instrs=10\nAI_EDA_TRACE|cycle=91212|test=bench_branch_predict64|event=reset_release|halted=0|exit_code=0|detail=rst_n=1\nCHECK: bench_branch_predict64 — 等待 halted 超时（3000 周期），imem_addr=0x00000000\nAI_EDA_TRACE|cycle=94212|test=bench_branch_predict64|event=timeout|halted=0|exit_code=0|detail=max_cycles=3000_pc=0x00000000\nAI_EDA_TRACE|cycle=94212|test=bench_branch_predict64|event=test_end|halted=0|exit_code=0|detail=checks=9001_failures=1_cycles=3000_ok=0\nAI_EDA_TRACE|cycle=94215|test=bench_ooo_overlap64|event=load_program|halted=0|exit_code=0|detail=instrs=12\nAI_EDA_TRACE|cycle=94215|test=bench_ooo_overlap64|event=test_start|halted=0|exit_code=0|detail=instrs=12\nAI_EDA_TRACE|cycle=94215|test=bench_ooo_overlap64|event=reset_release|halted=0|exit_code=0|detail=rst_n=1\nCHECK: bench_ooo_overlap64 — 等待 halted 超时（6000 周期），imem_addr=0x00000300\nAI_EDA_TRACE|cycle=100215|test=bench_ooo_overlap64|event=timeout|halted=0|exit_code=0|detail=max_cycles=6000_pc=0x00000300\nAI_EDA_TRACE|cycle=100215|test=bench_ooo_overlap64|event=test_end|halted=0|exit_code=0|detail=checks=18001_failures=1_cycles=6000_ok=0\nAI_EDA_SUITE|name=performance_correctness|passed=0|skipped=0|checks=102004\nAI_EDA_CAPABILITY|level=0|name=rv32i|declared=0|verified=-1|expected=0|features=0\nLAB_RESULT: FAIL (21 failures / 300515 checks)\nFATAL: /home/jinfan_zhang/THU_AI_EDA_2026/content/tasks/homework_rv32i5/tb/run.svh:39: \n       Time: 1002166000  Scope: tb_agent_rv32i5.u_teacher_tb",
+  "candidate_modules": [
+    {
+      "path": "rtl/rv32i5.sv",
+      "score": 2,
+      "reason": "顶层模块"
+    },
+    {
+      "path": "rtl/regfile.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/ex_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "score": 0,
+      "reason": "同项目文件"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "rtl/ex_stage.sv",
+      "bytes": 6889,
+      "sha256": "005b14bbd61fa302"
+    },
+    {
+      "path": "rtl/forwarding_unit.sv",
+      "bytes": 1366,
+      "sha256": "ecc5d70f179866c9"
+    },
+    {
+      "path": "rtl/hazard_unit.sv",
+      "bytes": 1107,
+      "sha256": "be8a8a403a22263b"
+    },
+    {
+      "path": "rtl/id_stage.sv",
+      "bytes": 12269,
+      "sha256": "c1603c89d51d7ae3"
+    },
+    {
+      "path": "rtl/if_stage.sv",
+      "bytes": 1519,
+      "sha256": "fb361d3f34485b79"
+    },
+    {
+      "path": "rtl/mem_stage.sv",
+      "bytes": 4247,
+      "sha256": "0e1cf1a2636579e4"
+    },
+    {
+      "path": "rtl/regfile.sv",
+      "bytes": 1742,
+      "sha256": "8247de9cdcb098f5"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "bytes": 10741,
+      "sha256": "42d3e6f2e02c2e14"
+    },
+    {
+      "path": "rtl/wb_stage.sv",
+      "bytes": 977,
+      "sha256": "85d2331f432dd428"
+    }
+  ],
+  "references": {
+    "report": "tester-01/test_report.json",
+    "spec": "artifacts/effective_spec.md",
+    "plan": "artifacts/plan.json",
+    "rtl_manifest": "artifacts/rtl_manifest.json"
+  }
+}

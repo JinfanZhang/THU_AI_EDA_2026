@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -177,14 +179,26 @@ class PatchAgent(SubAgent):
 
         entries = []
         for path, ref in sorted(updated_refs.items()):
-            if path in changed:
-                size = len(changed[path].encode("utf-8"))
-            else:
-                size = len(self.runtime.read_text_artifact(ref).encode("utf-8"))
-            entries.append({"path": path, "artifact": ref, "bytes": size})
+            content = changed.get(path)
+            if content is None:
+                content = self.runtime.read_text_artifact(ref)
+            entries.append(
+                {
+                    "path": path,
+                    "artifact": ref,
+                    "bytes": len(content.encode("utf-8")),
+                    "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                }
+            )
         next_manifest_ref = self.runtime.write_json_artifact(
             f"rtl_manifest_attempt{attempt}.json",
-            {"schema_version": "rtl_manifest/2", "attempt": attempt, "files": entries},
+            {
+                "schema_version": "rtl_manifest/2",
+                "run_id": self.runtime.run_dir.name,
+                "attempt": attempt,
+                "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "files": entries,
+            },
         )
 
         self.save_context(

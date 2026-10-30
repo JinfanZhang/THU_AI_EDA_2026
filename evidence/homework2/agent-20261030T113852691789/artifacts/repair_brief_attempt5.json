@@ -1,0 +1,48 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 5,
+  "stage": "simulation",
+  "created_at": "2026-10-30T11:49:02+00:00",
+  "hypothesis": "The ID/EX payload (the operand+immediate payload of the pipeline register) is not being captured correctly in id_stage, so EX executes every instruction with a zeroed B operand and a mis-sliced immediate — while control fields (alu_op, branch, jump, reg_write) are fine, so the ALU opcode itself is correct and the failures are silent, per-opcode value errors rather than global breakage. Two concrete mechanisms, both inside the ID/EX register block of id_stage: (1) id_ex_rs2_data is effectively a constant 0 / is never loaded from rs2_data, so every R-type op computes rs1 <op> 0 — OR x4 gives rs1 alone (0xb -> 0x3), SLT/SLTU x16/x17 give 0, and the t05_forward chain degenerates into `result = rs1`, so each register ends up holding the previous chain value (x2=0x5=x1, x3=0xf=x2_old, x5=0xa, x13=0x2a), exactly the 'forwarding looks broken but is actually never needed' signature; (2) id_ex_imm for I-type takes the slice {instr[31:21],1'b0} zero-extended instead of sign-extended instr[31:20], so ADDI -2049 (0xFFFFF7FF) yields 0x000007FE. The same zeroed/corrupted operands feed the EX branch comparator, so loops in bench_ooo_overlap64 never take the exit branch, PC keeps walking dmem reads (0xc24..0xc5c) until the 6000-cycle timeout and the ECALL never retires, leaving halted=0. Rounds 1-4 fixed the redirect term, the imm generator expression, the writeback/regfile commit path and the ALU B mux polarity, but never verified that the registered payload the mux selects actually contains",
+  "confidence": "medium",
+  "files": [
+    "rtl/id_stage.sv",
+    "rtl/ex_stage.sv"
+  ],
+  "symbols": [
+    "id_ex_rs2_data",
+    "id_ex_rs1_data",
+    "id_ex_imm",
+    "id_ex_alu_b_sel",
+    "if_id_instr",
+    "rs1_data",
+    "rs2_data",
+    "alu_b",
+    "forward_b"
+  ],
+  "constraints": [
+    "Do not change any module port names, widths or directions frozen in the interface contract (id_stage, ex_stage and all 8 modules keep their existing ports).",
+    "id_ex_* outputs must remain registered (a pipeline register clocked by clk), loaded only when the ID stage advances; on rst_n=0 all id_ex_valid/id_ex control must clear to 0.",
+    "Keep the forwarding contract intact: forwarding_unit unchanged in behaviour, EX/MEM -> EX has priority over MEM/WB -> EX, forward is suppressed when ex_mem_rd_addr==0, mem_wb_rd_addr==0 or the source register field is x0.",
+    "ALU B mux semantics must stay: R-type/I-type ALU ops use id_ex_imm when id_ex_alu_b_sel==1 and id_ex_rs2_data when 0; do not invert the polarity as a workaround.",
+    "Immediate generation: I-type = sign-extended instr[31:20]; S-type = {instr[31:25],instr[11:7]}; B-type = {instr[31],instr[7],instr[30:25],instr[11:8],1'b0} sign-extended; U-type = {instr[31:12],12'b0}; J-type per spec. No zero-extension, no",
+    "Do not touch load-use stall, redirect/flush timing, halt/halted WB-only semantics, dmem_valid rst_n/halted masking, or the single-cycle memory model.",
+    "No hardcoded test values, no per-opcode special cases keyed to the testbench, no disabling of checks or debug flags."
+  ],
+  "verification_targets": [
+    "t03_alu_imm: x3 must become 0xfffff7ff (currently 0x000007fe) — proves I-type immediate is sign-extended from instr[31:20] with bit0 intact.",
+    "t02_alu_r: x4 must become 0x0000000b (currently 0x00000003), x16 and x17 must both become 0x00000001 (currently 0) — proves the R-type B operand is the real rs2, not 0.",
+    "t05_forward: x2=0x0000000f, x3=0x00000014, x4=0x0000001e, x5=0x0000000f, x7=0x00000002, x13=0x00000054 (currently 0x5/0xf/0xf/0xa/0x14/0x2a) — proves both EX/MEM and MEM/WB forwarding deliver the producer value.",
+    "bench_ooo_overlap64: halted must assert with exit_code=0 well before max_cycles=6000, and the PC must leave 0x00000028 instead of scanning dmem 0xc24..0xc5c forever.",
+    "Suite totals: base and performance_correctness must report 0 failures (currently 58 failures / 291617 checks) with the RV32I capability check no longer at verified=-1."
+  ],
+  "rejected_hypotheses": [
+    "Round 1 (spurious ex_redirect for non-control instructions reloading PC from the ALU result) — applied; imem_addr still times out at 0x28 and the t02/t03/t05 values are unchanged.",
+    "Round 2 (I-type immediate loses instr[20]/bit0 and is not sign-extended, U-type comes out 0) — applied; t03_alu_imm still reads 0x000007fe, so the correction did not reach the imm actually presented on id_ex_imm.",
+    "Round 3 (writeback/regfile commit path mis-wired: wrong waddr, off-by-one cycle, wrong wb_sel) — applied; the failures are operand-side (rs1-only results, stale chain values), not write-side, and x16/x17 = 0 is a genuine ALU result, not a d",
+    "Round 4 (id_ex_alu_b_sel decoded with inverted polarity so R-type uses imm and I-type uses rs2) — applied; that only addresses the mux select, not the payload: the observed behaviour is consistent with the registered B source itself being 0"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt5.json",
+  "report_ref": "tester-05/test_report.json"
+}

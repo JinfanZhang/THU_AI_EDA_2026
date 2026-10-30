@@ -1,0 +1,46 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 1,
+  "stage": "simulation",
+  "created_at": "2026-10-30T11:42:03+00:00",
+  "hypothesis": "EX-stage redirection is being asserted for non-control instructions: ex_redirect fires even though the item in EX is an ALU/ALU-imm/LUI/AUIPC op, so if_stage keeps taking the `redirect` branch and loads PC with the EX ALU result (or a stale/pc+imm value) instead of PC+4. The evidence is that the timeout imem_addr values are literally ALU results: t03_alu_imm parks at 0xfffff804 (a sign-extended ALU/ADDI result), t02_alu_r at 0xfffffffc (= -4), t04_upper at 0x752d9004 (= an LUI immediate << 12), and t01_reset is pinned at 0x8 (a self-referential jump to an ALU result), i.e. PC is being reloaded from the datapath every cycle instead of only on branch/JAL/JALR. Because the same spurious redirect also flushes ID/EX (and, combined with the stall/flush path, clears if_id_valid), no instruction ever retires: x1 never leaves its reset value, no dmem transaction is ever issued, and the ECALL never reaches WB, so halted stays 0 in every suite. The root mechanism is a decode/control defect in which the branch/jump qualifiers feeding ex_redirect (id_ex_jump / id_ex_branch, and hence `taken`) are set or left un-defaulted for ordinary ALU opcodes, and/or the redirect term is not qualified solely by `id_ex_valid && (taken || jal || jalr)`; redirect_pc must be selected only from the branch/JAL target or the masked JALR target.",
+  "confidence": "high",
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/id_stage.sv"
+  ],
+  "symbols": [
+    "ex_redirect",
+    "ex_redirect_pc",
+    "id_ex_valid",
+    "id_ex_jump",
+    "id_ex_branch",
+    "taken",
+    "id_ex_alu_result",
+    "flush_ex"
+  ],
+  "constraints": [
+    "Top-level port list/names of rv32i5 and the 8 required module names must not change; imem_addr must remain if_stage.imem_addr and dmem_valid must stay mem_dmem_valid & rst_n & ~halted.",
+    "ex_redirect may only be asserted when id_ex_valid=1 AND the instruction is a taken branch or JAL/JALR; no redirection for ALU, ALU-imm, LUI, AUIPC, load/store or ECALL.",
+    "redirect_pc for JAL/JALR = (rs1 + imm) & 32'hffff_fffe; for branches = EX pc + imm; never the bare ALU result of a non-control op.",
+    "On a taken redirect flush only the two younger items (IF/ID and ID/EX) and set PC to the target; a stall must never clear a valid instruction; PC/IF-ID hold for exactly one cycle on a load-use stall.",
+    "Preserve halt semantics: only WB sets halted/exit_code on a committed ECALL (instr 32'h0000_0073), halt-pending freezes PC and inserts valid=0 into IF/ID while the ECALL itself continues EX->MEM->WB; halted freezes PC/imem_addr and keeps dm",
+    "Synchronous active-low reset: PC=0, 32 registers=0, all pipeline valids=0, halted=0, exit_code=0, and dmem_valid=0 including before the first reset edge."
+  ],
+  "verification_targets": [
+    "t02_alu_r: no redirect may occur during a straight-line ALU program; imem_addr must advance 0x0,0x4,0x8,... and the suite must reach ECALL -> halted=1 with the expected x-register values (exit_code = final x10).",
+    "t04_upper: imem_addr must never become 0x752d9004 or any LUI/AUIPC datapath value; LUI writes inst[31:12]<<12 to rd and the program halts within the cycle budget.",
+    "t03_alu_imm: imem_addr must never become 0xfffff804; ADDI/ANDI/ORI/XORI/SLLI/SRLI/SRAI/SLTI results must match the reference and halted=1 with exit_code = x10.",
+    "t01_reset: after reset release the loop program must advance x1 away from 0x200, issue dmem write transactions during the loop, and while rst_n=0 dmem_valid must stay 0 (no store may reach the memory model); after the second reset x1 must b",
+    "t05_forward / t07_load_use: forwarding paths EX/MEM and MEM/WB must both be exercised with EX/MEM priority and the load-use case must hold PC/IF-ID/ID-EX exactly one cycle then complete with halted=1.",
+    "t06_load_store / t06b_neg_imm: dmem_valid pulses exactly one cycle per access, dmem_addr stable, be/wdata per SB/SH/SW rules, and the program halts with the expected memory image."
+  ],
+  "rejected_hypotheses": [
+    "ECALL/halt-pending path in wb_stage is broken so halted never latches: rejected as the primary cause because a pure halt bug would leave PC marching through valid code addresses, whereas the observed imem_addr values (0xfffffffc, 0xfffff804",
+    "dmem_valid masking/reset gating suppresses the in-flight store in t01_reset: rejected because the test also reports x1 never advancing and PC frozen at 0x8, i.e. no instruction retires at all, so the missing store is a consequence of the br",
+    "Load-use stall deadlock in hazard_unit alone: rejected because a pure stall would hold PC at one small address and still let older instructions drain and commit (x1 would change and ECALL would halt); the observed non-code PC values require"
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt1.json",
+  "report_ref": "tester-01/test_report.json"
+}

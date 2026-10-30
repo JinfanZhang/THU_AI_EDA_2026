@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 from ai_eda.agent.reporting import report_summary, stage_label
@@ -135,6 +136,7 @@ def build_failure_packet(
         "run_id": run_id,
         "attempt": attempt,
         "project_id": project_id,
+        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "stage": stage,
         "stage_label": stage_label(stage),
         "passed": bool(report.get("passed")),

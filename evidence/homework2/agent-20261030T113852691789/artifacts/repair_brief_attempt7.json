@@ -1,0 +1,48 @@
+{
+  "schema_version": "repair_brief/1",
+  "run_id": "agent-20261030T113852691789",
+  "attempt": 7,
+  "stage": "simulation",
+  "created_at": "2026-10-30T11:52:46+00:00",
+  "hypothesis": "Operand B of the EX ALU is effectively hardwired to the immediate field: the ALU-B source mux in ex_stage selects id_ex_imm for register-operand instructions too (id_ex_alu_b_sel is mis-driven / tied so the rs2/forwarded-rs2 path is never reached), and the feed-forward of a forwarded rs2 is applied on the wrong node so it can never override the immediate. Because R-type instructions have a zero immediate field, every R-type op degenerates to `rs1 <op> 0` (t02_alu_r: OR x4 gives rs1=0x3 not 0xb; SLT/SLTU x16/x17 give 0), and the t05_forward dependent chain collapses to `each instruction writes back its own rs1` (x2=0x5=x1, x3=0xf=old x2, x5=0xa, x13=0x2a) because the compiled/forwarded rs2 is never consumed. The same dead B-operand feeds the EX branch comparator, so the loop-exit condition in bench_ooo_overlap64 never fires, PC walks off the program into the 0xa5a5a5a5 fill (0xc24..0xc5c), the ECALL never retires, and halted times out at 6000 cycles. The one diagnostic value that isolates the secondary bug is t03_alu_imm x3 = 0x000007fe: that is exactly `{instr[31:21], 1'b0}` zero-extended (0x3FF<<1) instead of the sign-extended `instr[31:20]`, proving the id_stage immediate generator is malformed for the I-type path as well. Rounds 1–6 each patched exactly one side of this single operand-B path (redirect term, immediate expression, wb/regfile commit, ALU-B polarity, id_ex payload capture, regfile rs2 read) but never made the ALU-B mux actually select rs2/forwarded-rs2 while a",
+  "confidence": "high",
+  "files": [
+    "rtl/ex_stage.sv",
+    "rtl/id_stage.sv"
+  ],
+  "symbols": [
+    "id_ex_alu_b_sel",
+    "id_ex_imm",
+    "id_ex_rs2_data",
+    "id_ex_rs2_addr",
+    "forward_b",
+    "alu_b_operand",
+    "ex_mem_alu_result",
+    "mem_wb_wb_data"
+  ],
+  "constraints": [
+    "Do not rename or change the direction/width of any port in the interface contracts (rv32i5, if_stage, id_stage, ex_stage, mem_stage, wb_stage, hazard_unit, forwarding_unit).",
+    "Forwarding priority: EX/MEM (forward==2'd1) beats MEM/WB (forward==2'd2); never forward when the producer rd or the consumer source field is x0.",
+    "ALU-B for R-type/I-type operand instructions MUST select the (forwarded) rs2 value; ALU-B selects id_ex_imm only for U-type/JAL and store-data uses rs2; apply the forwarding mux on the rs2 value BEFORE the alu_b_sel immediate substitution s",
+    "I-type/S-type/B-type immediates must be sign-extended from instr[31:20]/instr[31:25]|instr[11:7]; U-type from instr[31:12]<<12; J-type sign-extended from instr[31:12]; stop using the malformed {instr[31:21],1'b0} zero-extended slice.",
+    "Keep single-cycle memory model (no added wait states), synchronous active-low reset, and dmem_valid = mem & rst_n & ~halted gating unchanged.",
+    "Do not modify teacher TB, spec, or scoring scripts."
+  ],
+  "verification_targets": [
+    "t02_alu_r passes: x4 == 0x0000000b (OR), x16 == 0x00000001 (SLT), x17 == 0x00000001 (SLTU) — i.e. R-type results use the real rs2 operand, not rs1<op>0.",
+    "t03_alu_imm passes: x3 == 0xfffff7ff (ADDI -2049) — sign-extended I-immediate, not 0x000007fe.",
+    "t04_upper passes: LUI/AUIPC produce the U-immediate<<12 (e.g. x1 == 0x12345000, x6 == 0x80000000).",
+    "t05_forward passes: x2 == 0x0000000f, x3 == 0x00000014, x4 == 0x0000001e, x5 == 0x0000000f, x7 == 0x00000002, x13 == 0x00000054 — forwarding chain resolves to the produced values.",
+    "bench_ooo_overlap64 reaches halted==1 within the cycle budget (no 6000-cycle timeout; imem_addr no longer stuck at 0x28 / walking 0xc24..0xc5c fill)."
+  ],
+  "rejected_hypotheses": [
+    "(1) EX-stage spurious redirect for non-control instructions: ex_redirect/branch/jump qualifiers leaking into PC load — rejected because re-application left identical register values.",
+    "(2) id_stage immediate-type mis-decode alone — rejected: fixing only the immediate expression cannot fix R-type/forwarding/branch failures whose operands are register-sourced.",
+    "(3) wb_stage/regfile commit-path mis-wiring — rejected: results are per-opcode-consistent with a zeroed/imm B operand, not random landed registers.",
+    "(4) ALU-B select polarity inversion alone in ex_stage — rejected: polarity flip without fixing the forwarding-mux ordering still leaves rs2 unreachable and immediate malformed.",
+    "(5) ID/EX payload capture / imm slice {instr[31:21],1'b0} — partially confirmed for t03 but insufficient alone; the ALU-B path still never selects rs2 so t02/t05/branch remain broken.",
+    "(6) regfile second read port / top-level rs2 wiring — rejected: repairing rs2 read cannot help while ALU-B is stuck on the immediate path."
+  ],
+  "packet_ref": "artifacts/failure_packet_attempt7.json",
+  "report_ref": "tester-07/test_report.json"
+}
